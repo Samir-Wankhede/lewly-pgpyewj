@@ -1,0 +1,9 @@
+Subject: You are on the waitlist
+
+Hello,
+
+You are on the waitlist for event {{.EventID}}. Your position is {{.Position}}.
+Opt-out: {{.OptOutURL}}
+
+Thanks,
+Evently Team
