@@ -27,7 +27,7 @@ Key vars:
 
 ## Migrations
 
-SQL migrations live in `cmd/migrate/migrations`. Use `golang-migrate` or your preferred tool.
+SQL migrations live in `cmd/migrate/migrations`.
 
 
 ## Architecture
