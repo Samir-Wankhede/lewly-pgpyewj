@@ -13,12 +13,12 @@ type DB struct {
 }
 
 // NewDB creates a connection pool.
-func NewDB(ctx context.Context, url string) (*DB, error) {
+func NewDB(ctx context.Context, url string, maxDBConnections int32) (*DB, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, err
 	}
-	cfg.MaxConns = 20
+	cfg.MaxConns = maxDBConnections
 	cfg.MinConns = 2
 	cfg.MaxConnLifetime = time.Hour
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)

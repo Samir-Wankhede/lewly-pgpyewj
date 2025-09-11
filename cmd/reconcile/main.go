@@ -21,7 +21,7 @@ func main() {
 	log := logger.New(cfg.Env)
 	ctx := context.Background()
 
-	db, err := store.NewDB(ctx, cfg.PostgresURL)
+	db, err := store.NewDB(ctx, cfg.PostgresURL, int32(cfg.MaxDBConnections))
 	if err != nil {
 		log.Fatal("db", zap.Error(err))
 	}

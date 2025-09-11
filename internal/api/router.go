@@ -19,6 +19,15 @@ import (
 // RegisterRoutes wires all HTTP routes.
 func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 	r.Use(MetricsMiddleware())
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"name":        "Evently",
+			"description": "A scalable event booking platform with concurrency-safe ticketing, waitlists, and admin analytics.",
+			"version":     "1.0.0",
+			"docs":        "/swagger/index.html",
+			"endpoints":   []string{"/v1/health", "/v1/events", "/v1/bookings", "/v1/waitlist", "/admin"},
+		})
+	})
 	r.GET("/v1/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -30,7 +39,7 @@ func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 
 	// minimal DI wiring for events listing/get
 	cfg := config.Load()
-	db, err := store.NewDB(context.Background(), cfg.PostgresURL)
+	db, err := store.NewDB(context.Background(), cfg.PostgresURL, int32(cfg.MaxDBConnections))
 	if err == nil {
 		// When DB is unavailable, endpoints will still serve 500 gracefully.
 		eventsRepo := store.NewEventsRepository(db)

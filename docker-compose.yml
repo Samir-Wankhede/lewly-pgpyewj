@@ -85,6 +85,10 @@ services:
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: redpanda:9092
       JWT_SECRET: dev-secret
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin
+      MAX_WORKERS: 10
+      MAX_DB_CONNECTION: 20
 
   reconciler:
     build: .
@@ -100,6 +104,10 @@ services:
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: redpanda:9092
       JWT_SECRET: dev-secret
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin
+      MAX_WORKERS: 10
+      MAX_DB_CONNECTION: 20
 
 volumes:
   pgdata:

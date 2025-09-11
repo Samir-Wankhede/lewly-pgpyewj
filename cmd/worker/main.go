@@ -24,7 +24,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	db, err := store.NewDB(ctx, cfg.PostgresURL)
+	db, err := store.NewDB(ctx, cfg.PostgresURL, int32(cfg.MaxDBConnections))
 	if err != nil {
 		log.Fatal("db connect", zap.Error(err))
 	}
@@ -35,8 +35,8 @@ func main() {
 	dlq := kafkax.NewProducer([]string{cfg.KafkaBrokers}, "bookings-dlq")
 	defer dlq.Close()
 
-	f := worker.NewFinalizer(log, db, consumer, dlq)
-	go func() { _ = f.Run(ctx) }()
+	f := worker.NewFinalizer(log, db, consumer, dlq, cfg.MaxWorkerRoutineCount)
+	_ = f.Run(ctx)
 
 	<-ctx.Done()
 	log.Info("worker stopped")

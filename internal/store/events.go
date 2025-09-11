@@ -79,5 +79,3 @@ func (r *EventsRepository) Create(ctx context.Context, e *Event) (*Event, error)
 	}
 	return e, nil
 }
-
-// no itoa helper required
