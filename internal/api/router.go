@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/samirwankhede/lewly-pgpyewj/internal/auth"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/config"
 	kafkax "github.com/samirwankhede/lewly-pgpyewj/internal/kafka"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/middleware"
@@ -64,10 +63,6 @@ func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 		adminSvc := service.NewAdminService(log, eventsRepo, tokens)
 		NewAdminHandler(adminSvc, cfg.JWTSigningSecret).Register(r)
 
-		// Admin analytics
-		adminGroup := r.Group("/admin")
-		adminGroup.Use(auth.Middleware(cfg.JWTSigningSecret, true))
-		NewAdminAnalyticsHandler(store.NewAnalyticsRepository(db)).Register(adminGroup)
 	} else {
 		log.Warn("db init failed", zap.Error(err))
 	}
