@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -32,4 +33,19 @@ func (d *DB) Close() {
 	if d != nil && d.Pool != nil {
 		d.Pool.Close()
 	}
+}
+
+// WithTx runs the provided function within a transaction. It commits if fn returns nil,
+// otherwise it rolls back and returns the error.
+func (d *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	tx, err := d.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

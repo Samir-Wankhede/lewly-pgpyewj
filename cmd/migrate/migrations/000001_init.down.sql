@@ -1,15 +1,29 @@
 -- +migrate Down
-DROP TABLE IF EXISTS audit_log;
+-- Tear down statements
+DROP MATERIALIZED VIEW IF EXISTS mv_top_events;
+DROP TABLE IF EXISTS kv_store;
 DROP TABLE IF EXISTS analytics_aggregates;
+DROP TABLE IF EXISTS booking_audit;
+DROP TABLE IF EXISTS seats_p0;
+DROP TABLE IF EXISTS seats_p1;
+DROP TABLE IF EXISTS seats_p2;
+DROP TABLE IF EXISTS seats_p3;
 DROP TABLE IF EXISTS seats;
-DROP INDEX IF EXISTS idx_waitlist_event_position;
+DROP TABLE IF EXISTS waitlist_p0;
+DROP TABLE IF EXISTS waitlist_p1;
+DROP TABLE IF EXISTS waitlist_p2;
+DROP TABLE IF EXISTS waitlist_p3;
 DROP TABLE IF EXISTS waitlist;
-DROP INDEX IF EXISTS idx_bookings_user;
-DROP INDEX IF EXISTS idx_bookings_event_status;
+DROP TABLE IF EXISTS bookings_p0;
+DROP TABLE IF EXISTS bookings_p1;
+DROP TABLE IF EXISTS bookings_p2;
+DROP TABLE IF EXISTS bookings_p3;
 DROP TABLE IF EXISTS bookings;
+DROP TABLE IF EXISTS event_capacity_p0;
+DROP TABLE IF EXISTS event_capacity_p1;
+DROP TABLE IF EXISTS event_capacity_p2;
+DROP TABLE IF EXISTS event_capacity_p3;
 DROP TABLE IF EXISTS event_capacity;
-DROP INDEX IF EXISTS idx_events_name_trgm;
-DROP INDEX IF EXISTS idx_events_start_time;
+DROP TABLE IF EXISTS event_likes;
 DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS users;
-

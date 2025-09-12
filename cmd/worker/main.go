@@ -11,7 +11,13 @@ import (
 	"github.com/samirwankhede/lewly-pgpyewj/internal/config"
 	kafkax "github.com/samirwankhede/lewly-pgpyewj/internal/kafka"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/logger"
+	"github.com/samirwankhede/lewly-pgpyewj/internal/mailer"
+	mailerService "github.com/samirwankhede/lewly-pgpyewj/internal/service/mailer"
+	workerService "github.com/samirwankhede/lewly-pgpyewj/internal/service/worker"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store"
+	storeBookings "github.com/samirwankhede/lewly-pgpyewj/internal/store/bookings"
+	storeEvents "github.com/samirwankhede/lewly-pgpyewj/internal/store/events"
+	storeWaitlist "github.com/samirwankhede/lewly-pgpyewj/internal/store/waitlist"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/worker"
 )
 
@@ -30,12 +36,26 @@ func main() {
 	}
 	defer db.Close()
 
+	// Create repositories
+	bookingsRepo := storeBookings.NewBookingsRepository(db, log)
+	eventsRepo := storeEvents.NewEventsRepository(db, log)
+	waitlistRepo := storeWaitlist.NewWaitlistRepository(db, log)
+
+	// Create mailer service
+	mailerSender := &mailer.LogSender{} // Use log sender for demo
+	mailerSvc := mailerService.NewMailerService(log, mailerSender)
+
+	// Create finalize service
+	finalizeSvc := workerService.NewFinalizeService(log, bookingsRepo, eventsRepo, waitlistRepo, cfg.PaymentURL, mailerSvc)
+
+	// Create Kafka consumer and producer
 	consumer := kafkax.NewConsumer([]string{cfg.KafkaBrokers}, "evently-finalizer", "bookings")
 	defer consumer.Close()
 	dlq := kafkax.NewProducer([]string{cfg.KafkaBrokers}, "bookings-dlq")
 	defer dlq.Close()
 
-	f := worker.NewFinalizer(log, db, consumer, dlq, cfg.MaxWorkerRoutineCount)
+	// Create and run finalizer
+	f := worker.NewFinalizer(log, finalizeSvc, consumer, dlq, cfg.MaxWorkerRoutineCount)
 	_ = f.Run(ctx)
 
 	<-ctx.Done()

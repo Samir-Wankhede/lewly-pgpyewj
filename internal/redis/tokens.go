@@ -55,6 +55,11 @@ func (t *TokenBucket) Remaining(ctx context.Context, eventID string) (int, error
 
 func (t *TokenBucket) Close() { _ = t.client.Close() }
 
+// GetClient returns the underlying Redis client for OTP operations
+func (t *TokenBucket) GetClient() *redis.Client {
+	return t.client
+}
+
 // Optional: track held_count TTLs via a separate key per booking if needed.
 func (t *TokenBucket) HoldKey(eventID, bookingID string) string {
 	return fmt.Sprintf("event_hold:%s:%s", eventID, bookingID)

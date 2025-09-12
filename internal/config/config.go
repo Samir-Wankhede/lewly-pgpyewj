@@ -22,6 +22,7 @@ type Config struct {
 	AdminSuperUserPassword string
 	MaxWorkerRoutineCount  int
 	MaxDBConnections       int
+	PaymentURL             string
 }
 
 func Load() Config {
@@ -45,6 +46,7 @@ func Load() Config {
 		AdminSuperUserPassword: getenv("ADMIN_PASSWORD", "admin"),
 		MaxWorkerRoutineCount:  maxWorkerRoutineCount,
 		MaxDBConnections:       maxDBConnections,
+		PaymentURL:             getenv("PAYMENT_URL", "http://localhost:8080"),
 	}
 }
 

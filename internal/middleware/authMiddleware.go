@@ -1,4 +1,4 @@
-package auth
+package middleware
 
 import (
 	"net/http"
@@ -39,6 +39,16 @@ func Middleware(secret string, requireAdmin bool) gin.HandlerFunc {
 		c.Set("adm", claims.Admin)
 		c.Next()
 	}
+}
+
+// UserMiddleware is a simpler middleware that just requires authentication (not admin)
+func UserMiddleware(secret string) gin.HandlerFunc {
+	return Middleware(secret, false)
+}
+
+// AdminMiddleware requires admin privileges
+func AdminMiddleware(secret string) gin.HandlerFunc {
+	return Middleware(secret, true)
 }
 
 func Issue(secret, userID string, admin bool, ttl time.Duration) (string, error) {

@@ -17,6 +17,7 @@ import (
 	"github.com/samirwankhede/lewly-pgpyewj/internal/api"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/config"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/logger"
+	"github.com/samirwankhede/lewly-pgpyewj/internal/middleware"
 )
 
 func main() {
@@ -28,7 +29,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
-	r.Use(api.RequestLogger(log))
+	r.Use(middleware.RequestLogger(log))
 
 	api.RegisterRoutes(r, log)
 
