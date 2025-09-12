@@ -56,7 +56,6 @@ func (r *EventsRepository) Create(ctx context.Context, event *Event) (*Event, er
 		}
 		return err
 	})
-
 	return event, err
 }
 

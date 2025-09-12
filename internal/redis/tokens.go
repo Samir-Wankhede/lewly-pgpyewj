@@ -3,7 +3,6 @@ package redisx
 import (
 	"context"
 	"fmt"
-	"time"
 
 	redis "github.com/redis/go-redis/v9"
 )
@@ -58,13 +57,4 @@ func (t *TokenBucket) Close() { _ = t.client.Close() }
 // GetClient returns the underlying Redis client for OTP operations
 func (t *TokenBucket) GetClient() *redis.Client {
 	return t.client
-}
-
-// Optional: track held_count TTLs via a separate key per booking if needed.
-func (t *TokenBucket) HoldKey(eventID, bookingID string) string {
-	return fmt.Sprintf("event_hold:%s:%s", eventID, bookingID)
-}
-
-func (t *TokenBucket) SetHold(ctx context.Context, eventID, bookingID string, ttl time.Duration) error {
-	return t.client.Set(ctx, t.HoldKey(eventID, bookingID), 1, ttl).Err()
 }

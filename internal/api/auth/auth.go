@@ -32,7 +32,7 @@ func (h *AuthHandler) Register(r *gin.Engine) {
 
 	// Protected routes
 	protected := r.Group("/v1/auth")
-	protected.Use(authMiddleware.UserMiddleware(h.secret))
+	protected.Use(authMiddleware.Middleware(h.secret, false))
 	{
 		protected.GET("/profile", h.getProfile)
 		protected.PUT("/profile", h.updateProfile)

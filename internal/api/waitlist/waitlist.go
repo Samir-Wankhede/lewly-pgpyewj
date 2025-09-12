@@ -6,20 +6,30 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	jwtMiddleware "github.com/samirwankhede/lewly-pgpyewj/internal/middleware"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/waitlist"
 )
 
-type WaitlistHandler struct{ repo *waitlist.WaitlistRepository }
+type WaitlistHandler struct {
+	repo   *waitlist.WaitlistRepository
+	secret string
+}
 
-func NewWaitlistHandler(repo *waitlist.WaitlistRepository) *WaitlistHandler {
-	return &WaitlistHandler{repo: repo}
+func NewWaitlistHandler(repo *waitlist.WaitlistRepository, secret string) *WaitlistHandler {
+	return &WaitlistHandler{repo: repo, secret: secret}
 }
 
 func (h *WaitlistHandler) Register(r *gin.Engine) {
-	r.POST("/v1/waitlist/:event_id/join", h.join)
-	r.POST("/v1/waitlist/:event_id/:user_id/optout", h.optout)
 	r.GET("/v1/waitlist/:event_id/count", h.getCount)
 	r.GET("/v1/waitlist/:event_id", h.list)
+
+	protected := r.Group("/v1/waitlist")
+	protected.Use(jwtMiddleware.Middleware(h.secret, true))
+	{
+		protected.POST("/v1/waitlist/:event_id/join", h.join)
+		protected.POST("/v1/waitlist/:event_id/optout", h.optout)
+	}
+
 }
 
 func (h *WaitlistHandler) join(c *gin.Context) {

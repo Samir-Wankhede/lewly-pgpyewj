@@ -95,7 +95,6 @@ func (s *BookingsService) Create(ctx context.Context, eventID string, req Bookin
 			s.log.Error("failed to update seats", zap.Error(err))
 		}
 
-		_ = s.tokens.SetHold(ctx, eventID, b.ID, 3*time.Minute)
 		payload := map[string]any{
 			"type":            "finalize_booking",
 			"booking_id":      b.ID,

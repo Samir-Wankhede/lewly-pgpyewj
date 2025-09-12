@@ -6,28 +6,30 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	jwtMiddleware "github.com/samirwankhede/lewly-pgpyewj/internal/middleware"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/service/payment"
 )
 
 type PaymentHandler struct {
-	log *zap.Logger
-	svc *payment.PaymentService
+	log    *zap.Logger
+	svc    *payment.PaymentService
+	secret string
 }
 
-func NewPaymentHandler(log *zap.Logger, svc *payment.PaymentService) *PaymentHandler {
+func NewPaymentHandler(log *zap.Logger, svc *payment.PaymentService, secret string) *PaymentHandler {
 	return &PaymentHandler{log: log, svc: svc}
 }
 
 func (h *PaymentHandler) Register(r *gin.Engine) {
-	// Public payment endpoints (called by payment providers)
-	r.POST("/v1/payment/booking", h.processBookingPayment)
-	r.POST("/v1/payment/refund", h.processRefund)
-
-	// Admin endpoints for event cancellation refunds
-	admin := r.Group("/admin")
-	admin.Use(h.authMiddleware())
+	payments := r.Group("/v1/payment")
+	payments.Use(jwtMiddleware.Middleware(h.secret, false))
 	{
-		admin.POST("/events/:id/refund", h.processEventCancellationRefund)
+		payments.POST("/booking", h.processBookingPayment)
+		payments.POST("/refund", h.processRefund)
+	}
+	payments.Use(jwtMiddleware.Middleware(h.secret, true))
+	{
+		payments.POST("/events/:id/refund", h.processEventCancellationRefund)
 	}
 }
 
@@ -100,20 +102,4 @@ func (h *PaymentHandler) processEventCancellationRefund(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Event cancellation refunds processed successfully"})
-}
-
-func (h *PaymentHandler) authMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Simple auth check - in real implementation, use proper JWT middleware
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-			c.Abort()
-			return
-		}
-
-		// For now, just continue
-		// In real implementation, parse JWT token and verify admin privileges
-		c.Next()
-	}
 }

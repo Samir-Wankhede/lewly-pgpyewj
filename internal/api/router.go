@@ -83,9 +83,9 @@ func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 		events.NewEventsHandler(log, eventsSvc, cfg.JWTSigningSecret).Register(r)
 		auth.NewAuthHandler(log, authSvc, cfg.JWTSigningSecret).Register(r)
 		bookings.NewBookingsHandler(bookingsSvc, cfg.JWTSigningSecret).Register(r)
-		waitlist.NewWaitlistHandler(waitlistRepo).Register(r)
+		waitlist.NewWaitlistHandler(waitlistRepo, cfg.JWTSigningSecret).Register(r)
 		users.NewUsersHandler(bookingsRepo).Register(r)
-		payment.NewPaymentHandler(log, paymentSvc).Register(r)
+		payment.NewPaymentHandler(log, paymentSvc, cfg.JWTSigningSecret).Register(r)
 		admin.NewAdminHandler(adminSvc, cfg.JWTSigningSecret).Register(r)
 
 	} else {

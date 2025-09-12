@@ -69,11 +69,6 @@ func (f *Finalizer) handleMessage(ctx context.Context, m kafka.Message) error {
 		return err
 	}
 
-	// Check if this is a timeout message (booking expired)
-	if p.Type == "booking_timeout" {
-		return f.service.HandleBookingTimeout(ctx, p)
-	}
-
 	// Handle normal finalization
 	return f.service.HandleBookingFinalization(ctx, p)
 }

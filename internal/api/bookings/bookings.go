@@ -27,7 +27,7 @@ func (h *BookingsHandler) Register(r *gin.Engine) {
 
 	// Protected routes
 	protected := r.Group("/v1/bookings")
-	protected.Use(jwtMiddleware.Middleware(h.secret, true))
+	protected.Use(jwtMiddleware.Middleware(h.secret, false))
 	{
 		protected.GET("/user/:user_id", h.listUserBookings)
 	}

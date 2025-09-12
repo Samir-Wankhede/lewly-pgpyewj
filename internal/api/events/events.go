@@ -32,7 +32,7 @@ func (h *EventsHandler) Register(r *gin.Engine) {
 
 	// Protected routes for liking events
 	protected := r.Group("/v1/events")
-	protected.Use(jwtMiddleware.Middleware(h.secret, true))
+	protected.Use(jwtMiddleware.Middleware(h.secret, false))
 	{
 		protected.POST("/:id/like", h.likeEvent)
 		protected.DELETE("/:id/like", h.unlikeEvent)
