@@ -2,47 +2,48 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
 	"go.uber.org/zap"
 
 	redisx "github.com/samirwankhede/lewly-pgpyewj/internal/redis"
+	mailer "github.com/samirwankhede/lewly-pgpyewj/internal/service/mailer"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/admin"
+	"github.com/samirwankhede/lewly-pgpyewj/internal/store/bookings"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/events"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/seats"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/users"
 )
 
 type AdminService struct {
-	log    *zap.Logger
-	events *events.EventsRepository
-	users  *users.UsersRepository
-	admin  *admin.AdminRepository
-	seats  *seats.SeatsRepository
-	tokens *redisx.TokenBucket
-	mailer MailerService
+	log      *zap.Logger
+	events   *events.EventsRepository
+	users    *users.UsersRepository
+	bookings *bookings.BookingsRepository
+	admin    *admin.AdminRepository
+	seats    *seats.SeatsRepository
+	tokens   *redisx.TokenBucket
+	mailer   *mailer.MailerService
 }
 
-type MailerService interface {
-	SendEventCancellationEmail(userEmail string, eventName string, refundAmount float64, paymentLink string) error
-}
-
-func NewAdminService(log *zap.Logger, events *events.EventsRepository, users *users.UsersRepository, admin *admin.AdminRepository, seats *seats.SeatsRepository, tokens *redisx.TokenBucket, mailer MailerService) *AdminService {
-	return &AdminService{log: log, events: events, users: users, admin: admin, seats: seats, tokens: tokens, mailer: mailer}
+func NewAdminService(log *zap.Logger, events *events.EventsRepository, users *users.UsersRepository, bookings *bookings.BookingsRepository, admin *admin.AdminRepository, seats *seats.SeatsRepository, tokens *redisx.TokenBucket, mailer *mailer.MailerService) *AdminService {
+	return &AdminService{log: log, events: events, users: users, bookings: bookings, admin: admin, seats: seats, tokens: tokens, mailer: mailer}
 }
 
 type AdminEvent struct {
-	Name                     string    `json:"name"`
-	Venue                    string    `json:"venue"`
-	StartTime                time.Time `json:"start_time"`
-	EndTime                  time.Time `json:"end_time"`
-	Capacity                 int       `json:"capacity"`
-	Metadata                 []byte    `json:"metadata"`
-	TicketPrice              float64   `json:"ticket_price"`
-	CancellationFee          float64   `json:"cancellation_fee"`
-	MaximumTicketsPerBooking int       `json:"maximum_tickets_per_booking"`
-	Seats                    []string  `json:"seats"`
+	Name                     string          `json:"name" binding:"required"`
+	Venue                    string          `json:"venue" binding:"required"`
+	Category                 string          `json:"category"`
+	StartTime                time.Time       `json:"start_time" binding:"required"`
+	EndTime                  time.Time       `json:"end_time" binding:"required"`
+	Capacity                 int             `json:"capacity" binding:"required"`
+	Metadata                 json.RawMessage `json:"metadata"`
+	TicketPrice              float64         `json:"ticket_price"`
+	CancellationFee          float64         `json:"cancellation_fee"`
+	MaximumTicketsPerBooking int             `json:"maximum_tickets_per_booking"`
+	Seats                    []string        `json:"seats" binding:"required"`
 }
 
 func (a *AdminService) CreateEvent(ctx context.Context, in AdminEvent) (*events.Event, error) {
@@ -54,6 +55,7 @@ func (a *AdminService) CreateEvent(ctx context.Context, in AdminEvent) (*events.
 	e := &events.Event{
 		Name:                     in.Name,
 		Venue:                    in.Venue,
+		Category:                 in.Category,
 		StartTime:                in.StartTime,
 		EndTime:                  in.EndTime,
 		Capacity:                 in.Capacity,
@@ -100,11 +102,20 @@ func (a *AdminService) CancelEvent(ctx context.Context, eventID string) error {
 		return err
 	}
 
-	// Send cancellation emails to all booked users
-	// This would typically be done asynchronously
-	// For now, we'll just log it
+	bookings, err := a.bookings.ListByEvent(ctx, eventID, 1000, 0) // Get all bookings
+	if err != nil {
+		return err
+	}
+	for _, booking := range bookings {
+		if booking.PaymentStatus == "paid" {
+			user, err := a.users.GetByID(ctx, booking.UserID)
+			if err != nil {
+				a.log.Error("User not found", zap.String("user_id", booking.UserID))
+			}
+			a.mailer.SendEventCancellationEmail(user.Email, event.Name, event.TicketPrice)
+		}
+	}
 	a.log.Info("Event cancelled", zap.String("event_id", eventID), zap.String("event_name", event.Name))
-
 	return nil
 }
 
@@ -122,4 +133,8 @@ func (a *AdminService) RemoveAdmin(ctx context.Context, userID string) error {
 
 func (a *AdminService) RemoveUser(ctx context.Context, userID string) error {
 	return a.admin.RemoveUser(ctx, userID)
+}
+
+func (a *AdminService) GetUserByEmail(ctx context.Context, email string) (*users.User, error) {
+	return a.users.GetByEmail(ctx, email)
 }

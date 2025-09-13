@@ -74,6 +74,10 @@ func (h *AuthHandler) login(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 			return
 		}
+		if err == authService.ErrUserNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
 		h.log.Error("Login failed", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return

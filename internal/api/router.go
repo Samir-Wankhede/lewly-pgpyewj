@@ -85,7 +85,7 @@ func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 		producer := kafkax.NewProducer([]string{cfg.KafkaBrokers}, "bookings")
 		bookingsSvc := bookingsService.NewBookingsService(log, bookingsRepo, eventsRepo, tokens, producer, waitlistRepo, mailerSvc)
 		paymentSvc := paymentService.NewPaymentService(log, bookingsRepo, eventsRepo)
-		adminSvc := adminService.NewAdminService(log, eventsRepo, usersRepo, adminRepo, seatsRepo, tokens, mailerSvc)
+		adminSvc := adminService.NewAdminService(log, eventsRepo, usersRepo, bookingsRepo, adminRepo, seatsRepo, tokens, mailerSvc)
 
 		// Register handlers
 		events.NewEventsHandler(log, eventsSvc, cfg.JWTSigningSecret).Register(r)

@@ -7,11 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	jwtMiddleware "github.com/samirwankhede/lewly-pgpyewj/internal/middleware"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/service/admin"
-	"github.com/samirwankhede/lewly-pgpyewj/internal/store"
 )
 
 type AdminHandler struct {
-	repo   *store.AnalyticsRepository
 	svc    *admin.AdminService
 	secret string
 }
@@ -31,6 +29,7 @@ func (h *AdminHandler) Register(r *gin.Engine) {
 		g.POST("/users/:id/admin", h.createAdmin)
 		g.DELETE("/users/:id/admin", h.removeAdmin)
 		g.DELETE("/users/:id", h.removeUser)
+		g.GET("/users/get-user", h.getUserByEmail)
 	}
 }
 
@@ -102,7 +101,7 @@ func (h *AdminHandler) cancelEvent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Event cancelled successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Event cancelled successfully, Please Process refund through payments endpoint"})
 }
 
 func (h *AdminHandler) createAdmin(c *gin.Context) {
@@ -133,4 +132,21 @@ func (h *AdminHandler) removeUser(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "User removed successfully"})
+}
+
+func (h *AdminHandler) getUserByEmail(c *gin.Context) {
+	type Email struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	var email Email
+	if err := c.ShouldBindJSON(&email); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	user, err := h.svc.GetUserByEmail(c.Request.Context(), email.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, user)
 }

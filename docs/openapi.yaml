@@ -433,17 +433,29 @@ paths:
       responses:
         "200": { description: Demoted }
 
-  /admin/users/{id}:
-    delete:
-      summary: Remove user
+    /admin/users/{id}:
+      delete:
+        summary: Remove user
+        security: [ { bearerAuth: [] } ]
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema: { type: string }
+        responses:
+          "200": { description: Removed }
+
+  /admin/users/get-user:
+    get:
+      summary: Get user by email
       security: [ { bearerAuth: [] } ]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Email" }
       responses:
-        "200": { description: Removed }
+        "200": { description: User }
 
   ####################################
   # Payment
@@ -677,13 +689,53 @@ components:
     AdminEvent:
       type: object
       properties:
-        name: { type: string }
-        description: { type: string }
-        start_time: { type: string, format: date-time }
-        end_time: { type: string, format: date-time }
-        location: { type: string }
-        capacity: { type: integer }
-      required: [ name, start_time, end_time, location, capacity ]
+        name:
+          type: string
+          description: Name of the event
+        venue:
+          type: string
+          description: Venue/location of the event
+        category:
+          type: string
+          description: Category of the event (e.g., music, sports, tech)
+        start_time:
+          type: string
+          format: date-time
+          description: Start time of the event
+        end_time:
+          type: string
+          format: date-time
+          description: End time of the event
+        capacity:
+          type: integer
+          description: Maximum number of attendees
+        metadata:
+          type: string
+          format: byte
+          description: Arbitrary metadata in binary (JSON or encoded data)
+        ticket_price:
+          type: number
+          format: float
+          description: Ticket price per attendee
+        cancellation_fee:
+          type: number
+          format: float
+          description: Fee applied if booking is cancelled
+        maximum_tickets_per_booking:
+          type: integer
+          description: Maximum number of tickets per single booking
+        seats:
+          type: array
+          items:
+            type: string
+          description: List of seat identifiers, must match capacity
+      required:
+        - name
+        - venue
+        - start_time
+        - end_time
+        - capacity
+        - seats
 
     RefundRequest:
       type: object
@@ -707,6 +759,11 @@ components:
         status:
           type: string
           enum: [waiting, notified, confirmed, opted_out]
+    Email:
+      type: object
+      properties:
+        email: { type: string, format: email }
+      required: [ email ]
 
 
    

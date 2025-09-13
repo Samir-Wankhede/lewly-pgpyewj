@@ -115,7 +115,7 @@ Evently Team
 	return nil
 }
 
-func (m *MailerService) SendEventCancellationEmail(userEmail string, eventName string, refundAmount float64, paymentLink string) error {
+func (m *MailerService) SendEventCancellationEmail(userEmail string, eventName string, refundAmount float64) error {
 	subject := fmt.Sprintf("Event Cancelled: %s", eventName)
 	body := fmt.Sprintf(`
 Dear User,
@@ -123,15 +123,14 @@ Dear User,
 We regret to inform you that the event "%s" has been cancelled.
 
 Refund Amount: $%.2f
-Refund Link: %s
 
-Please use the refund link to process your full refund.
+Your refund amount arrive shortly.
 
 We apologize for any inconvenience.
 
 Best regards,
 Evently Team
-`, eventName, refundAmount, paymentLink)
+`, eventName, refundAmount)
 
 	mail := mailer.Mail{
 		To:      userEmail,

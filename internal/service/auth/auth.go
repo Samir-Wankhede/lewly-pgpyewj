@@ -132,6 +132,10 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginRespon
 		return nil, ErrInvalidCredentials
 	}
 
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+
 	// Check if user has password (not OAuth user)
 	if user.PasswordHash == "" {
 		return nil, ErrInvalidCredentials
@@ -263,6 +267,10 @@ func (s *AuthService) GetProfile(ctx context.Context, userID string) (*UserInfo,
 		return nil, ErrUserNotFound
 	}
 
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+
 	return &UserInfo{
 		ID:    user.ID,
 		Name:  user.Name,
@@ -273,6 +281,14 @@ func (s *AuthService) GetProfile(ctx context.Context, userID string) (*UserInfo,
 }
 
 func (s *AuthService) UpdateProfile(ctx context.Context, userID string, name, phone string) error {
+	user, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+
+	if user == nil {
+		return ErrUserNotFound
+	}
 	return s.users.UpdateProfile(ctx, userID, name, phone)
 }
 
