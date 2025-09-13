@@ -13,6 +13,7 @@ import (
 
 	jwtMiddleware "github.com/samirwankhede/lewly-pgpyewj/internal/middleware"
 	redisx "github.com/samirwankhede/lewly-pgpyewj/internal/redis"
+	"github.com/samirwankhede/lewly-pgpyewj/internal/service/mailer"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/users"
 )
 
@@ -21,11 +22,7 @@ type AuthService struct {
 	users  *users.UsersRepository
 	redis  *redisx.TokenBucket
 	secret string
-	mailer MailerService
-}
-
-type MailerService interface {
-	SendPasswordChangeOTPEmail(userEmail string, otp string) error
+	mailer *mailer.MailerService
 }
 
 type SignupRequest struct {
@@ -64,8 +61,9 @@ type OTPRequest struct {
 }
 
 type OTPVerifyRequest struct {
-	Email string `json:"email" binding:"required,email"`
-	OTP   string `json:"otp" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	OTP         string `json:"otp" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
 }
 
 var (
@@ -76,7 +74,7 @@ var (
 	ErrOAuthUser          = errors.New("password change not allowed for OAuth users")
 )
 
-func NewAuthService(log *zap.Logger, users *users.UsersRepository, redis *redisx.TokenBucket, secret string, mailer MailerService) *AuthService {
+func NewAuthService(log *zap.Logger, users *users.UsersRepository, redis *redisx.TokenBucket, secret string, mailer *mailer.MailerService) *AuthService {
 	return &AuthService{
 		log:    log,
 		users:  users,
@@ -92,6 +90,8 @@ func (s *AuthService) Signup(ctx context.Context, req SignupRequest) (*LoginResp
 	if err == nil && existing != nil {
 		return nil, ErrUserExists
 	}
+
+	// s.log.Info("Signup check", zap.String("email", req.Email), zap.Any("existing", existing), zap.Error(err))
 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -207,20 +207,16 @@ func (s *AuthService) RequestPasswordChangeOTP(ctx context.Context, req OTPReque
 	}
 
 	// Send OTP via email
-	if s.mailer != nil {
-		err = s.mailer.SendPasswordChangeOTPEmail(req.Email, otp)
-		if err != nil {
-			s.log.Error("Failed to send OTP email", zap.Error(err))
-			// Don't return error to prevent email enumeration
-		}
-	} else {
-		s.log.Info("Password change OTP generated", zap.String("email", req.Email), zap.String("otp", otp))
+	err = s.mailer.SendPasswordChangeOTPEmail(req.Email, otp)
+	if err != nil {
+		s.log.Error("Failed to send OTP email", zap.Error(err))
+		// Don't return error to prevent email enumeration
 	}
 
 	return nil
 }
 
-func (s *AuthService) VerifyPasswordChangeOTP(ctx context.Context, req OTPVerifyRequest, newPassword string) error {
+func (s *AuthService) VerifyPasswordChangeOTP(ctx context.Context, req OTPVerifyRequest) error {
 	// Verify OTP
 	key := fmt.Sprintf("password_change_otp:%s", req.Email)
 	storedOTP, err := s.redis.GetClient().Get(ctx, key).Result()
@@ -244,7 +240,7 @@ func (s *AuthService) VerifyPasswordChangeOTP(ctx context.Context, req OTPVerify
 	}
 
 	// Hash new password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}

@@ -70,7 +70,13 @@ func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 
 		// Create Redis client and mailer
 		tokens := redisx.NewTokenBucket(cfg.RedisAddr)
-		mailerSender := &mailer.LogSender{} // Use log sender for demo
+		mailerSender := &mailer.SMTPSender{
+			Host: cfg.SMTPHost,
+			Port: cfg.SMTPPort,
+			User: cfg.SMTPUser,
+			Pass: cfg.SMTPPass,
+			From: cfg.SMTPFrom,
+		}
 		mailerSvc := mailerService.NewMailerService(log, mailerSender)
 
 		// Create services

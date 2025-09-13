@@ -44,7 +44,13 @@ func main() {
 	waitlistRepo := storeWaitlist.NewWaitlistRepository(db, log)
 
 	// Create mailer service
-	mailerSender := &mailer.LogSender{} // Use log sender for demo
+	mailerSender := &mailer.SMTPSender{
+		Host: cfg.SMTPHost,
+		Port: cfg.SMTPPort,
+		User: cfg.SMTPUser,
+		Pass: cfg.SMTPPass,
+		From: cfg.SMTPFrom,
+	}
 	mailerSvc := mailerService.NewMailerService(log, mailerSender)
 
 	// Create finalize service

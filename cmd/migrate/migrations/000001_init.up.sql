@@ -22,13 +22,13 @@ $$;
 --------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT,
+    name TEXT NOT NULL DEFAULT '',
     email TEXT UNIQUE NOT NULL,
-    phone TEXT,
+    phone TEXT NOT NULL DEFAULT '',
     -- Authentication
-    password_hash TEXT,                    -- for local auth (bcrypt)
-    oauth_provider TEXT,                   -- e.g. 'google'
-    oauth_sub TEXT,                        -- provider-specific user id
+    password_hash TEXT NOT NULL DEFAULT '',                    -- for local auth (bcrypt)
+    oauth_provider TEXT NOT NULL DEFAULT '',                   -- e.g. 'google'
+    oauth_sub TEXT NOT NULL DEFAULT '',                        -- provider-specific user id
     role TEXT CHECK (role IN ('user','admin')) DEFAULT 'user',
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -46,15 +46,15 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at_column();
 CREATE TABLE IF NOT EXISTS events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    venue TEXT,
+    venue TEXT NOT NULL DEFAULT '',
     start_time TIMESTAMPTZ,
     end_time TIMESTAMPTZ,
     category TEXT,                           -- e.g., concert, conference
     capacity INT NOT NULL,
     reserved INT NOT NULL DEFAULT 0,
-    metadata JSONB,
+    metadata JSONB NOT NULL DEFAULT '{}',
     status TEXT CHECK (status IN ('upcoming','ongoing','cancelled','expired')) DEFAULT 'upcoming' NOT NULL,
-    seats JSONB NULL,
+    seats JSONB NOT NULL DEFAULT '[]',
     ticket_price NUMERIC(12,2) DEFAULT 0,    -- base charge per seat
     cancellation_fee NUMERIC(12,2) DEFAULT 0,-- absolute fee (app logic can treat as percent)
     likes INT NOT NULL DEFAULT 0,            -- denormalized count (also track details in event_likes)
@@ -110,17 +110,19 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at_column();
 -- BOOKINGS - partitioned/sharded by event_id (hash)
 --------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS bookings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    event_id UUID NOT NULL,
+    event_id UUID REFERENCES events(id) ON DELETE SET NULL,
     status TEXT CHECK (status IN ('pending','booked','cancelled','waitlisted','expired')) NOT NULL,
     seats JSONB NULL,
-    idempotency_key TEXT UNIQUE,
+    idempotency_key TEXT,
     amount_paid NUMERIC(12,2) DEFAULT 0,
     payment_status TEXT CHECK (payment_status IN ('pending','paid','failed','refunded')) DEFAULT 'pending',
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
-    version INT DEFAULT 1
+    version INT DEFAULT 1,
+    CONSTRAINT unique_event_idempotency UNIQUE (event_id, idempotency_key),
+    PRIMARY KEY(event_id, id)
 ) PARTITION BY HASH (event_id);
 
 -- create 4 partitions (example)
@@ -132,8 +134,6 @@ CREATE TABLE IF NOT EXISTS bookings_p3 PARTITION OF bookings FOR VALUES WITH (mo
 -- helpful indexes (created on parent are propagated to partitions in PG14+, but adding explicitly for safety)
 CREATE INDEX IF NOT EXISTS idx_bookings_event_status ON bookings (event_id, status);
 CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings (user_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_idem ON bookings (idempotency_key);
-
 -- trigger to update updated_at on bookings
 CREATE TRIGGER bookings_set_updated_at BEFORE UPDATE ON bookings
 FOR EACH ROW EXECUTE FUNCTION set_updated_at_column();
@@ -142,13 +142,14 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at_column();
 -- WAITLIST - partitioned by event_id (hash)
 --------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS waitlist (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    event_id UUID NOT NULL,
+    id UUID DEFAULT gen_random_uuid(),
+    event_id UUID REFERENCES events(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     position INT NOT NULL,
     opted_out BOOLEAN DEFAULT FALSE,
     notified_at TIMESTAMPTZ NULL,
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY(event_id, id)
 ) PARTITION BY HASH (event_id);
 
 CREATE TABLE IF NOT EXISTS waitlist_p0 PARTITION OF waitlist FOR VALUES WITH (modulus 4, remainder 0);
@@ -162,14 +163,15 @@ CREATE INDEX IF NOT EXISTS idx_waitlist_event_position ON waitlist (event_id, po
 -- SEATS - partitioned by event_id for seat-level booking scalability
 --------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS seats (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    event_id UUID NOT NULL,
+    id UUID DEFAULT gen_random_uuid(),
+    event_id UUID REFERENCES events(id) ON DELETE CASCADE,
     seat_label TEXT,
     status TEXT CHECK (status IN ('available','held','booked')) DEFAULT 'available',
     held_until TIMESTAMPTZ NULL,
     held_by_booking UUID NULL,             -- references bookings.id across partitions (no FK enforced across partitions here)
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY(event_id, id)
 ) PARTITION BY HASH (event_id);
 
 CREATE TABLE IF NOT EXISTS seats_p0 PARTITION OF seats FOR VALUES WITH (modulus 4, remainder 0);

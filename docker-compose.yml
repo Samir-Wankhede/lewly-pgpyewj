@@ -46,7 +46,8 @@ services:
   migrate:
     image: migrate/migrate:v4.17.0
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     volumes:
       - ./cmd/migrate/migrations:/migrations:ro
     entrypoint: ["/usr/bin/migrate", "-path", "/migrations", "-database", "postgres://evently:evently@postgres:5432/evently?sslmode=disable", "up"]
@@ -66,8 +67,11 @@ services:
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: redpanda:9092
       JWT_SECRET: dev-secret
-      SMTP_HOST: mailhog
-      SMTP_PORT: 1025
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_FROM : samir.wankhede04@gmail.com
+      SMTP_USER: samir.wankhede04@gmail.com
+      SMTP_PASS: 
       ADMIN_EMAIL: admin@evently.com
       ADMIN_PASSWORD: admin
       MAX_WORKERS: 10
@@ -91,6 +95,11 @@ services:
       JWT_SECRET: dev-secret
       MAX_WORKERS: 10
       MAX_DB_CONNECTION: 20
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_FROM : samir.wankhede04@gmail.com
+      SMTP_USER: samir.wankhede04@gmail.com
+      SMTP_PASS: 
 
   reconciler:
     build: .

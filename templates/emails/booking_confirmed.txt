@@ -1,8 +1,0 @@
-Subject: Your Evently booking is confirmed
-
-Hello,
-
-Your booking {{.BookingID}} for event {{.EventID}} is confirmed.
-
-Thanks,
-Evently Team

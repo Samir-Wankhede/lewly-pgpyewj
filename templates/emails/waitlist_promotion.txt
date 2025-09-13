@@ -1,8 +1,0 @@
-Subject: Good news! Your booking is confirmed
-
-Hello,
-
-A slot freed up and your booking for event {{.EventID}} is now confirmed.
-
-Thanks,
-Evently Team

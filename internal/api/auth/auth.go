@@ -199,15 +199,7 @@ func (h *AuthHandler) verifyPasswordChangeOTP(c *gin.Context) {
 		return
 	}
 
-	var newPassword struct {
-		NewPassword string `json:"new_password" binding:"required,min=8"`
-	}
-	if err := c.ShouldBindJSON(&newPassword); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err := h.svc.VerifyPasswordChangeOTP(c.Request.Context(), req, newPassword.NewPassword)
+	err := h.svc.VerifyPasswordChangeOTP(c.Request.Context(), req)
 	if err != nil {
 		if err == authService.ErrInvalidOTP {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired OTP"})
