@@ -2,6 +2,7 @@ package payment
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -22,11 +23,8 @@ func NewPaymentHandler(log *zap.Logger, svc *payment.PaymentService, secret stri
 
 func (h *PaymentHandler) Register(r *gin.Engine) {
 	payments := r.Group("/v1/payment")
-	payments.Use(jwtMiddleware.Middleware(h.secret, false))
-	{
-		payments.POST("/booking", h.processBookingPayment)
-		payments.POST("/refund", h.processRefund)
-	}
+	payments.POST("/booking", h.processBookingPayment)
+	payments.POST("/refund", h.processRefund)
 	payments.Use(jwtMiddleware.Middleware(h.secret, true))
 	{
 		payments.POST("/events/:id/refund", h.processEventCancellationRefund)
@@ -34,9 +32,16 @@ func (h *PaymentHandler) Register(r *gin.Engine) {
 }
 
 func (h *PaymentHandler) processBookingPayment(c *gin.Context) {
-	var req payment.PaymentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	booking_id := c.Query("booking_id")
+	amt, err := strconv.ParseFloat(c.DefaultQuery("amount", "-1"), 64)
+	payment_id := c.Query("payment_id")
+	req := payment.PaymentRequest{
+		BookingID: booking_id,
+		Amount:    amt,
+		PaymentID: payment_id,
+	}
+	if amt == float64(-1) || err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error with amount parameter"})
 		return
 	}
 

@@ -22,7 +22,6 @@ func NewBookingsHandler(svc *bookings.BookingsService, secret string) *BookingsH
 func (h *BookingsHandler) Register(r *gin.Engine) {
 	r.POST("/v1/events/:id/book", h.book)
 	r.GET("/v1/bookings/:id/status", h.getStatus)
-	r.GET("/v1/events/:id/seats", h.getAvailableSeats)
 	r.POST("/v1/bookings/:id/cancel", h.cancel)
 
 	// Protected routes
@@ -60,16 +59,6 @@ func (h *BookingsHandler) getStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": status})
-}
-
-func (h *BookingsHandler) getAvailableSeats(c *gin.Context) {
-	eventID := c.Param("id")
-	seats, err := h.svc.GetAvailableSeats(c.Request.Context(), eventID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"seats": seats})
 }
 
 func (h *BookingsHandler) listUserBookings(c *gin.Context) {

@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_admin_users ON users(id) WHERE role = 'admin';
 
 -- trigger to update updated_at
 CREATE TRIGGER users_set_updated_at BEFORE UPDATE ON users
@@ -53,6 +54,7 @@ CREATE TABLE IF NOT EXISTS events (
     reserved INT NOT NULL DEFAULT 0,
     metadata JSONB,
     status TEXT CHECK (status IN ('upcoming','ongoing','cancelled','expired')) DEFAULT 'upcoming' NOT NULL,
+    seats JSONB NULL,
     ticket_price NUMERIC(12,2) DEFAULT 0,    -- base charge per seat
     cancellation_fee NUMERIC(12,2) DEFAULT 0,-- absolute fee (app logic can treat as percent)
     likes INT NOT NULL DEFAULT 0,            -- denormalized count (also track details in event_likes)
@@ -255,10 +257,3 @@ SELECT (capacity - reserved) FROM events WHERE id = eid
 LIMIT 1;
 $$;
 
---------------------------------------------------------------------------------
--- Final notes:
--- * Partition count (modulus 4) is an example. Increase modulus for more partitions.
--- * Consider creating partition-specific indexes if needed for performance.
--- * Some foreign keys across partitions are not enforceable by Postgres (e.g., seats.held_by_booking), so application-level checks are recommended.
--- * For extremely large scale, consider cross-database sharding: store mapping table (event_id -> shard/DB) and route queries in app layer.
---------------------------------------------------------------------------------

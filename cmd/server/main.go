@@ -18,6 +18,7 @@ import (
 	"github.com/samirwankhede/lewly-pgpyewj/internal/config"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/logger"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/middleware"
+	"github.com/samirwankhede/lewly-pgpyewj/internal/store"
 )
 
 func main() {
@@ -25,6 +26,19 @@ func main() {
 
 	cfg := config.Load()
 	log := logger.New(cfg.Env)
+
+	// Create default admin user
+	db, err := store.NewDB(context.Background(), cfg.PostgresURL, int32(cfg.MaxDBConnections))
+	if err != nil {
+		log.Error("Failed to connect to database for admin creation", zap.Error(err))
+	} else {
+		defer db.Close()
+		if err := config.CreateDefaultAdmin(&cfg, db); err != nil {
+			log.Error("Failed to create default admin user", zap.Error(err))
+		} else {
+			log.Info("Default admin user created successfully")
+		}
+	}
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()

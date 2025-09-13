@@ -83,16 +83,11 @@ func (s *BookingsService) Create(ctx context.Context, eventID string, req Bookin
 	}
 
 	if ok {
-		b, err := s.repo.CreatePending(ctx, req.UserID, eventID, req.IdempotencyKey)
-		if err != nil {
-			return nil, 500, err
-		}
-
 		// Store seats in booking
 		seatsJSON, _ := json.Marshal(req.Seats)
-		err = s.repo.UpdateSeats(ctx, b.ID, seatsJSON)
+		b, err := s.repo.CreatePending(ctx, req.UserID, eventID, req.IdempotencyKey, seatsJSON)
 		if err != nil {
-			s.log.Error("failed to update seats", zap.Error(err))
+			return nil, 500, err
 		}
 
 		payload := map[string]any{
@@ -151,7 +146,13 @@ func (s *BookingsService) Cancel(ctx context.Context, bookingID string) (map[str
 		// Promote next person from waitlist
 		if s.wait != nil {
 			if id, userID, _, err := s.wait.NextActive(ctx, b.EventID); err == nil && userID != "" {
-				if pb, cerr := s.repo.CreatePending(ctx, userID, b.EventID, nil); cerr == nil {
+				// Get seats from the cancelled booking
+				var seats []string
+				if len(b.Seats) > 0 {
+					json.Unmarshal(b.Seats, &seats)
+				}
+				seatsJSON, _ := json.Marshal(seats)
+				if pb, cerr := s.repo.CreatePending(ctx, userID, b.EventID, nil, seatsJSON); cerr == nil {
 					payload := map[string]any{
 						"type":            "finalize_booking",
 						"booking_id":      pb.ID,

@@ -12,6 +12,7 @@ import (
 	kafkax "github.com/samirwankhede/lewly-pgpyewj/internal/kafka"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/logger"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/mailer"
+	redisx "github.com/samirwankhede/lewly-pgpyewj/internal/redis"
 	mailerService "github.com/samirwankhede/lewly-pgpyewj/internal/service/mailer"
 	workerService "github.com/samirwankhede/lewly-pgpyewj/internal/service/worker"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store"
@@ -30,6 +31,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	bookingTimeoutStore := redisx.NewTimeoutBucket(cfg.RedisAddr)
 	db, err := store.NewDB(ctx, cfg.PostgresURL, int32(cfg.MaxDBConnections))
 	if err != nil {
 		log.Fatal("db connect", zap.Error(err))
@@ -46,7 +48,7 @@ func main() {
 	mailerSvc := mailerService.NewMailerService(log, mailerSender)
 
 	// Create finalize service
-	finalizeSvc := workerService.NewFinalizeService(log, bookingsRepo, eventsRepo, waitlistRepo, cfg.PaymentURL, mailerSvc)
+	finalizeSvc := workerService.NewFinalizeService(log, bookingsRepo, eventsRepo, waitlistRepo, cfg.PaymentURL, mailerSvc, bookingTimeoutStore)
 
 	// Create Kafka consumer and producer
 	consumer := kafkax.NewConsumer([]string{cfg.KafkaBrokers}, "evently-finalizer", "bookings")

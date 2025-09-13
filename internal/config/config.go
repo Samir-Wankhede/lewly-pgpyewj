@@ -18,7 +18,7 @@ type Config struct {
 	SMTPUser               string
 	SMTPPass               string
 	SMTPFrom               string
-	AdminSuperUser         string
+	AdminEmail             string
 	AdminSuperUserPassword string
 	MaxWorkerRoutineCount  int
 	MaxDBConnections       int
@@ -42,7 +42,7 @@ func Load() Config {
 		SMTPUser:               getenv("SMTP_USER", ""),
 		SMTPPass:               getenv("SMTP_PASS", ""),
 		SMTPFrom:               getenv("SMTP_FROM", "noreply@evently.local"),
-		AdminSuperUser:         getenv("ADMIN_USERNAME", "admin"),
+		AdminEmail:             getenv("ADMIN_EMAIL", "admin@evently.com"),
 		AdminSuperUserPassword: getenv("ADMIN_PASSWORD", "admin"),
 		MaxWorkerRoutineCount:  maxWorkerRoutineCount,
 		MaxDBConnections:       maxDBConnections,

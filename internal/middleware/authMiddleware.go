@@ -1,12 +1,15 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/samirwankhede/lewly-pgpyewj/internal/store"
 )
 
 type Claims struct {
@@ -31,14 +34,50 @@ func Middleware(secret string, requireAdmin bool) gin.HandlerFunc {
 			return
 		}
 		claims := token.Claims.(*Claims)
-		if requireAdmin && !claims.Admin {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin required"})
-			return
+
+		// If admin is required, check both JWT claim and database
+		if requireAdmin {
+			if !claims.Admin {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin required"})
+				return
+			}
+
+			// Double-check admin status in database
+			if !isUserAdminInDB(c.Request.Context(), claims.UserID) {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin privileges revoked"})
+				return
+			}
 		}
+
 		c.Set("uid", claims.UserID)
 		c.Set("adm", claims.Admin)
 		c.Next()
 	}
+}
+
+func isUserAdminInDB(ctx context.Context, userID string) bool {
+	// Get database connection from environment
+	dbURL := getenv("POSTGRES_URL", "postgres://evently:evently@localhost:5432/evently?sslmode=disable")
+	db, err := store.NewDB(ctx, dbURL, 5) // Use small connection pool for middleware
+	if err != nil {
+		return false
+	}
+	defer db.Close()
+
+	var role string
+	err = db.Pool.QueryRow(ctx, "SELECT role FROM users WHERE id = $1", userID).Scan(&role)
+	if err != nil {
+		return false
+	}
+
+	return role == "admin"
+}
+
+func getenv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }
 
 // UserMiddleware is a simpler middleware that just requires authentication (not admin)

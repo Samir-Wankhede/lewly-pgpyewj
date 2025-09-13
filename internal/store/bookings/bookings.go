@@ -2,6 +2,7 @@ package bookings
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -33,10 +34,10 @@ func NewBookingsRepository(db *store.DB, log *zap.Logger) *BookingsRepository {
 	return &BookingsRepository{db: db, log: log}
 }
 
-func (r *BookingsRepository) CreatePending(ctx context.Context, userID, eventID string, idempotencyKey *string) (*Booking, error) {
+func (r *BookingsRepository) CreatePending(ctx context.Context, userID, eventID string, idempotencyKey *string, seats []byte) (*Booking, error) {
 	query := `
-		INSERT INTO bookings (user_id, event_id, status, idempotency_key, payment_status)
-		VALUES ($1, $2, 'pending', $3, 'pending')
+		INSERT INTO bookings (user_id, event_id, status, idempotency_key, payment_status, seats)
+		VALUES ($1, $2, 'pending', $3, 'pending', $4)
 		RETURNING id, created_at, updated_at, version`
 
 	booking := &Booking{
@@ -44,13 +45,14 @@ func (r *BookingsRepository) CreatePending(ctx context.Context, userID, eventID 
 		EventID:       eventID,
 		Status:        "pending",
 		PaymentStatus: "pending",
+		Seats:         seats,
 	}
 
 	if idempotencyKey != nil {
 		booking.IdempotencyKey = *idempotencyKey
 	}
 
-	err := r.db.Pool.QueryRow(ctx, query, userID, eventID, idempotencyKey).
+	err := r.db.Pool.QueryRow(ctx, query, userID, eventID, idempotencyKey, seats).
 		Scan(&booking.ID, &booking.CreatedAt, &booking.UpdatedAt, &booking.Version)
 	if err != nil {
 		return nil, err
@@ -187,7 +189,7 @@ func (r *BookingsRepository) UpdateStatus(ctx context.Context, id, status string
 func (r *BookingsRepository) UpdatePaymentStatus(ctx context.Context, id, paymentStatus string, amountPaid float64) error {
 	query := `
 		UPDATE bookings 
-		SET payment_status = $1, amount_paid = $2, updated_at = now() 
+		SET payment_status = $1, amount_paid = $2
 		WHERE id = $3`
 
 	result, err := r.db.Pool.Exec(ctx, query, paymentStatus, amountPaid, id)
@@ -253,7 +255,7 @@ func (r *BookingsRepository) CancelBookingTx(ctx context.Context, bookingID stri
 		return nil, false, err
 	}
 
-	// If it was booked, update event reserved count
+	// If it was booked, update event reserved count and release seats
 	if wasBooked {
 		_, err = tx.Exec(ctx, `
 			UPDATE events 
@@ -262,6 +264,26 @@ func (r *BookingsRepository) CancelBookingTx(ctx context.Context, bookingID stri
 		`, booking.EventID)
 		if err != nil {
 			return nil, false, err
+		}
+
+		// Release seats - mark them as available again
+		var seatLabels []string
+		if len(booking.Seats) > 0 {
+			err = json.Unmarshal(booking.Seats, &seatLabels)
+			if err != nil {
+				return nil, false, err
+			}
+
+			for _, seatLabel := range seatLabels {
+				_, err = tx.Exec(ctx, `
+				UPDATE seats 
+				SET status = 'available', held_by_booking = NULL, held_until = NULL, updated_at = now()
+				WHERE event_id = $1 AND seat_label = $2
+			`, booking.EventID, seatLabel)
+				if err != nil {
+					return nil, false, err
+				}
+			}
 		}
 	}
 
@@ -276,8 +298,15 @@ func (r *BookingsRepository) CancelBookingTx(ctx context.Context, bookingID stri
 
 func (r *BookingsRepository) FinalizeBooking(ctx context.Context, bookingID string, seats []byte, amountPaid float64) error {
 	return r.db.WithTx(ctx, func(tx pgx.Tx) error {
+		// Get event_id for updating seats table
+		var eventID string
+		err := tx.QueryRow(ctx, `SELECT event_id FROM bookings WHERE id = $1`, bookingID).Scan(&eventID)
+		if err != nil {
+			return err
+		}
+
 		// Update booking
-		_, err := tx.Exec(ctx, `
+		_, err = tx.Exec(ctx, `
 		UPDATE bookings 
 		SET status = 'booked', seats = $1, amount_paid = $2, payment_status = 'paid', updated_at = now() 
 		WHERE id = $3 AND status = 'pending'
@@ -286,16 +315,37 @@ func (r *BookingsRepository) FinalizeBooking(ctx context.Context, bookingID stri
 			return err
 		}
 
+		// Update seats table - mark seats as booked
+		// Parse seats JSON and update each seat individually
+		var seatLabels []string
+		if len(seats) > 0 {
+			err = json.Unmarshal(seats, &seatLabels)
+			if err != nil {
+				return err
+			}
+
+			for _, seatLabel := range seatLabels {
+				_, err = tx.Exec(ctx, `
+				UPDATE seats 
+				SET status = 'booked', held_by_booking = $1, held_until = NULL, updated_at = now()
+				WHERE event_id = $2 AND seat_label = $3
+			`, bookingID, eventID, seatLabel)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
 		// Update event reserved count
 		_, err = tx.Exec(ctx, `
 		UPDATE events 
 		SET reserved = reserved + 1 
-		WHERE id = (SELECT event_id FROM bookings WHERE id = $1)
-	`, bookingID)
+		WHERE id = $1
+	`, eventID)
 		if err != nil {
 			return err
 		}
-		return err
+		return nil
 	})
 }
 

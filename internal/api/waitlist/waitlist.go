@@ -24,7 +24,7 @@ func (h *WaitlistHandler) Register(r *gin.Engine) {
 	r.GET("/v1/waitlist/:event_id", h.list)
 
 	protected := r.Group("/v1/waitlist")
-	protected.Use(jwtMiddleware.Middleware(h.secret, true))
+	protected.Use(jwtMiddleware.Middleware(h.secret, false))
 	{
 		protected.POST("/v1/waitlist/:event_id/join", h.join)
 		protected.POST("/v1/waitlist/:event_id/optout", h.optout)
@@ -34,14 +34,8 @@ func (h *WaitlistHandler) Register(r *gin.Engine) {
 
 func (h *WaitlistHandler) join(c *gin.Context) {
 	eventID := c.Param("event_id")
-	var body struct {
-		UserID string `json:"user_id"`
-	}
-	if err := c.ShouldBindJSON(&body); err != nil || body.UserID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id required"})
-		return
-	}
-	pos, err := h.repo.Add(c.Request.Context(), eventID, body.UserID)
+	userID := c.GetString("uid")
+	pos, err := h.repo.Add(c.Request.Context(), eventID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -51,7 +45,7 @@ func (h *WaitlistHandler) join(c *gin.Context) {
 
 func (h *WaitlistHandler) optout(c *gin.Context) {
 	eventID := c.Param("event_id")
-	userID := c.Param("user_id")
+	userID := c.GetString("uid")
 	if err := h.repo.OptOut(c.Request.Context(), eventID, userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

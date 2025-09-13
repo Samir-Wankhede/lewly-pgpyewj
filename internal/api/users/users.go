@@ -6,17 +6,25 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	authMiddleware "github.com/samirwankhede/lewly-pgpyewj/internal/middleware"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/bookings"
 )
 
-type UsersHandler struct{ repo *bookings.BookingsRepository }
+type UsersHandler struct {
+	repo   *bookings.BookingsRepository
+	secret string
+}
 
-func NewUsersHandler(repo *bookings.BookingsRepository) *UsersHandler {
-	return &UsersHandler{repo: repo}
+func NewUsersHandler(repo *bookings.BookingsRepository, secret string) *UsersHandler {
+	return &UsersHandler{repo: repo, secret: secret}
 }
 
 func (h *UsersHandler) Register(r *gin.Engine) {
-	r.GET("/v1/users/:id/bookings", h.listBookings)
+	protected := r.Group("/v1/users")
+	protected.Use(authMiddleware.Middleware(h.secret, false))
+	{
+		protected.GET("/:id/bookings", h.listBookings)
+	}
 }
 
 func (h *UsersHandler) listBookings(c *gin.Context) {

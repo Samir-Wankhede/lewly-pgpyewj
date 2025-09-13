@@ -64,8 +64,6 @@ func (f *Finalizer) Run(ctx context.Context) error {
 func (f *Finalizer) handleMessage(ctx context.Context, m kafka.Message) error {
 	var p workerService.FinalizePayload
 	if err := json.Unmarshal(m.Value, &p); err != nil {
-		// JSON parse failure is not retriable → straight to DLQ
-		_ = f.dlq.Publish(ctx, m.Key, m.Value)
 		return err
 	}
 

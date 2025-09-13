@@ -22,7 +22,6 @@ type PaymentService struct {
 type PaymentRequest struct {
 	BookingID string  `json:"booking_id"`
 	Amount    float64 `json:"amount"`
-	Currency  string  `json:"currency"`
 	PaymentID string  `json:"payment_id"` // From payment provider (e.g., Stripe)
 }
 

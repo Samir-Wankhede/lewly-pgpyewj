@@ -14,7 +14,9 @@ FROM gcr.io/distroless/base-debian12
 WORKDIR /
 COPY --from=builder /out/server /server
 COPY --from=builder /out/worker /worker
+COPY --from=builder /out/reconcile /reconcile
 COPY --from=builder /out/event-status-checker /event-status-checker
+COPY --from=builder /app/docs /docs
 EXPOSE 8080
 USER nonroot:nonroot
 ENTRYPOINT ["/server"]

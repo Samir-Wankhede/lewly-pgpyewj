@@ -1,90 +1,636 @@
 openapi: 3.1.3
 info:
   title: Evently API
-  version: 0.1.0
+  description: A scalable event booking platform with concurrency-safe ticketing, waitlists, and admin analytics
+  version: 1.0.0
 servers:
   - url: http://localhost:8080
+    description: Development server
+
 paths:
+  /:
+    get:
+      summary: API Information
+      description: Get basic information about the API
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  version:
+                    type: string
+                  docs:
+                    type: string
+                  endpoints:
+                    type: array
+                    items:
+                      type: string
+
   /v1/health:
     get:
+      summary: Health Check
+      description: Check if the API is running
       responses:
-        '200': { description: OK }
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
   /v1/events:
     get:
+      summary: List Events
+      description: Get a list of events with optional filtering
       parameters:
         - in: query
           name: limit
-          schema: { type: integer }
+          schema: 
+            type: integer
+            default: 20
+          description: Maximum number of events to return
         - in: query
           name: offset
-          schema: { type: integer }
+          schema: 
+            type: integer
+            default: 0
+          description: Number of events to skip
+        - in: query
+          name: q
+          schema: 
+            type: string
+          description: Search query for event names
+        - in: query
+          name: from
+          schema: 
+            type: string
+            format: date-time
+          description: Filter events starting from this date
+        - in: query
+          name: to
+          schema: 
+            type: string
+            format: date-time
+          description: Filter events ending before this date
       responses:
-        '200': { description: OK }
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+
   /v1/events/{id}:
     get:
+      summary: Get Event Details
+      description: Get detailed information about a specific event
       parameters:
         - in: path
           name: id
           required: true
-          schema: { type: string }
+          schema: 
+            type: string
+            format: uuid
+          description: Event ID
       responses:
-        '200': { description: OK }
+        '200':
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '404':
+          description: Event not found
+
   /v1/events/{id}/book:
     post:
+      summary: Book Event
+      description: Create a booking for an event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: 
+            type: string
+            format: uuid
+          description: Event ID
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - user_id
+                - seats
               properties:
-                user_id: { type: string }
-                seats: { type: array, items: { type: string } }
-                idempotency_key: { type: string }
+                user_id:
+                  type: string
+                  format: uuid
+                  description: User ID making the booking
+                seats:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of seat labels to book
+                idempotency_key:
+                  type: string
+                  description: Optional idempotency key to prevent duplicate bookings
       responses:
-        '202': { description: Accepted }
-        '200': { description: OK }
-        '409': { description: Conflict }
+        '202':
+          description: Booking created and pending payment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '200':
+          description: Booking already exists (idempotency)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '400':
+          description: Bad request (event expired, invalid seats, etc.)
+        '409':
+          description: Conflict (event full, seats not available)
+
   /v1/bookings/{id}/cancel:
     post:
+      summary: Cancel Booking
+      description: Cancel an existing booking
       parameters:
         - in: path
           name: id
           required: true
-          schema: { type: string }
+          schema: 
+            type: string
+            format: uuid
+          description: Booking ID
       responses:
-        '200': { description: OK }
+        '200':
+          description: Booking cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking_id:
+                    type: string
+                  status:
+                    type: string
+        '404':
+          description: Booking not found
+        '409':
+          description: Booking cannot be cancelled
+
   /v1/users/{id}/bookings:
     get:
+      summary: Get User Bookings
+      description: Get all bookings for a specific user
       parameters:
         - in: path
           name: id
           required: true
-          schema: { type: string }
+          schema: 
+            type: string
+            format: uuid
+          description: User ID
+        - in: query
+          name: limit
+          schema: 
+            type: integer
+            default: 20
+          description: Maximum number of bookings to return
+        - in: query
+          name: offset
+          schema: 
+            type: integer
+            default: 0
+          description: Number of bookings to skip
       responses:
-        '200': { description: OK }
+        '200':
+          description: List of user bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+
   /v1/waitlist/{event_id}/join:
     post:
+      summary: Join Waitlist
+      description: Add user to event waitlist
+      parameters:
+        - in: path
+          name: event_id
+          required: true
+          schema: 
+            type: string
+            format: uuid
+          description: Event ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: User ID joining the waitlist
       responses:
-        '200': { description: OK }
+        '200':
+          description: Successfully joined waitlist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  position:
+                    type: integer
+                    description: Position in waitlist
+
   /v1/waitlist/{event_id}/{user_id}/optout:
     post:
+      summary: Opt Out of Waitlist
+      description: Remove user from event waitlist
+      parameters:
+        - in: path
+          name: event_id
+          required: true
+          schema: 
+            type: string
+            format: uuid
+          description: Event ID
+        - in: path
+          name: user_id
+          required: true
+          schema: 
+            type: string
+            format: uuid
+          description: User ID
       responses:
-        '200': { description: OK }
+        '200':
+          description: Successfully opted out of waitlist
+
   /admin/events:
     post:
+      summary: Create Event (Admin)
+      description: Create a new event (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminEvent'
       responses:
-        '201': { description: Created }
+        '201':
+          description: Event created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not admin)
+
+  /admin/events/{id}:
+    put:
+      summary: Update Event (Admin)
+      description: Update an existing event (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: 
+            type: string
+            format: uuid
+          description: Event ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Fields to update
+      responses:
+        '200':
+          description: Event updated successfully
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not admin)
+        '404':
+          description: Event not found
+
+  /admin/events/{id}/cancel:
+    post:
+      summary: Cancel Event (Admin)
+      description: Cancel an event (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: 
+            type: string
+            format: uuid
+          description: Event ID
+      responses:
+        '200':
+          description: Event cancelled successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not admin)
+        '404':
+          description: Event not found
+
   /admin/analytics:
     get:
+      summary: Get Analytics (Admin)
+      description: Get analytics summary (admin only)
+      security:
+        - bearerAuth: []
       parameters:
         - in: query
           name: from
-          schema: { type: string, format: date-time }
+          schema: 
+            type: string
+            format: date-time
+          description: Start date for analytics
         - in: query
           name: to
-          schema: { type: string, format: date-time }
+          schema: 
+            type: string
+            format: date-time
+          description: End date for analytics
       responses:
-        '200': { description: OK }
+        '200':
+          description: Analytics summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsSummary'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not admin)
 
+  /admin/users/{id}/admin:
+    post:
+      summary: Promote User to Admin (Admin)
+      description: Promote a user to admin role (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: 
+            type: string
+            format: uuid
+          description: User ID
+      responses:
+        '200':
+          description: User promoted to admin successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not admin)
+        '404':
+          description: User not found
+    delete:
+      summary: Remove Admin Privileges (Admin)
+      description: Remove admin privileges from a user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: 
+            type: string
+            format: uuid
+          description: User ID
+      responses:
+        '200':
+          description: Admin privileges removed successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not admin)
+        '404':
+          description: User not found
 
+  /admin/users/{id}:
+    delete:
+      summary: Remove User (Admin)
+      description: Remove a user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: 
+            type: string
+            format: uuid
+          description: User ID
+      responses:
+        '200':
+          description: User removed successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not admin)
+        '404':
+          description: User not found
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        venue:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        category:
+          type: string
+        capacity:
+          type: integer
+        reserved:
+          type: integer
+        status:
+          type: string
+          enum: [upcoming, ongoing, cancelled, expired]
+        ticket_price:
+          type: number
+          format: float
+        cancellation_fee:
+          type: number
+          format: float
+        likes:
+          type: integer
+        maximum_tickets_per_booking:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AdminEvent:
+      type: object
+      required:
+        - name
+        - venue
+        - start_time
+        - end_time
+        - capacity
+        - seats
+        - ticket_price
+        - cancellation_fee
+        - maximum_tickets_per_booking
+      properties:
+        name:
+          type: string
+        venue:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+        seats:
+          type: array
+          items:
+            type: string
+          description: Array of seat labels (must match capacity)
+        ticket_price:
+          type: number
+          format: float
+        cancellation_fee:
+          type: number
+          format: float
+        maximum_tickets_per_booking:
+          type: integer
+        metadata:
+          type: string
+          format: byte
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, booked, cancelled, waitlisted, expired]
+        seats:
+          type: array
+          items:
+            type: string
+        amount_paid:
+          type: number
+          format: float
+        payment_status:
+          type: string
+          enum: [pending, paid, failed, refunded]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    BookingResponse:
+      type: object
+      properties:
+        booking_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, booked, cancelled, waitlisted, expired]
+        position:
+          type: integer
+          description: Position in waitlist (if waitlisted)
+
+    AnalyticsSummary:
+      type: object
+      properties:
+        total_events:
+          type: integer
+        total_bookings:
+          type: integer
+        total_revenue:
+          type: number
+          format: float
+        total_users:
+          type: integer
+        events_by_status:
+          type: object
+          properties:
+            upcoming:
+              type: integer
+            ongoing:
+              type: integer
+            cancelled:
+              type: integer
+            expired:
+              type: integer

@@ -10,6 +10,7 @@ import (
 	redisx "github.com/samirwankhede/lewly-pgpyewj/internal/redis"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/admin"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/events"
+	"github.com/samirwankhede/lewly-pgpyewj/internal/store/seats"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/users"
 )
 
@@ -18,6 +19,7 @@ type AdminService struct {
 	events *events.EventsRepository
 	users  *users.UsersRepository
 	admin  *admin.AdminRepository
+	seats  *seats.SeatsRepository
 	tokens *redisx.TokenBucket
 	mailer MailerService
 }
@@ -26,8 +28,8 @@ type MailerService interface {
 	SendEventCancellationEmail(userEmail string, eventName string, refundAmount float64, paymentLink string) error
 }
 
-func NewAdminService(log *zap.Logger, events *events.EventsRepository, users *users.UsersRepository, admin *admin.AdminRepository, tokens *redisx.TokenBucket, mailer MailerService) *AdminService {
-	return &AdminService{log: log, events: events, users: users, admin: admin, tokens: tokens, mailer: mailer}
+func NewAdminService(log *zap.Logger, events *events.EventsRepository, users *users.UsersRepository, admin *admin.AdminRepository, seats *seats.SeatsRepository, tokens *redisx.TokenBucket, mailer MailerService) *AdminService {
+	return &AdminService{log: log, events: events, users: users, admin: admin, seats: seats, tokens: tokens, mailer: mailer}
 }
 
 type AdminEvent struct {
@@ -44,6 +46,11 @@ type AdminEvent struct {
 }
 
 func (a *AdminService) CreateEvent(ctx context.Context, in AdminEvent) (*events.Event, error) {
+	// Validate seats array size matches capacity
+	if len(in.Seats) != in.Capacity {
+		return nil, errors.New("seats array size must match event capacity")
+	}
+
 	e := &events.Event{
 		Name:                     in.Name,
 		Venue:                    in.Venue,
@@ -60,6 +67,15 @@ func (a *AdminService) CreateEvent(ctx context.Context, in AdminEvent) (*events.
 	if err != nil {
 		return nil, err
 	}
+
+	// Create seats in the seats table
+	err = a.seats.CreateSeats(ctx, e.ID, in.Seats)
+	if err != nil {
+		a.log.Error("Failed to create seats", zap.Error(err), zap.String("event_id", e.ID))
+		// Note: We don't return error here as the event is already created
+		// In production, you might want to rollback the event creation
+	}
+
 	_ = a.tokens.InitTokens(ctx, e.ID, e.Capacity)
 	return e, nil
 }

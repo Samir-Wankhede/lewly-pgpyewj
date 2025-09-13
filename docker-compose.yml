@@ -68,6 +68,10 @@ services:
       JWT_SECRET: dev-secret
       SMTP_HOST: mailhog
       SMTP_PORT: 1025
+      ADMIN_EMAIL: admin@evently.com
+      ADMIN_PASSWORD: admin
+      MAX_WORKERS: 10
+      MAX_DB_CONNECTION: 20
     ports:
       - "8080:8080"
 
@@ -85,8 +89,6 @@ services:
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: redpanda:9092
       JWT_SECRET: dev-secret
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: admin
       MAX_WORKERS: 10
       MAX_DB_CONNECTION: 20
 
@@ -104,10 +106,6 @@ services:
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: redpanda:9092
       JWT_SECRET: dev-secret
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: admin
-      MAX_WORKERS: 10
-      MAX_DB_CONNECTION: 20
 
   event-status-checker:
     build: .
@@ -123,10 +121,6 @@ services:
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: redpanda:9092
       JWT_SECRET: dev-secret
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: admin
-      MAX_WORKERS: 10
-      MAX_DB_CONNECTION: 20
 
 volumes:
   pgdata:

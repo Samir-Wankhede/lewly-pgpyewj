@@ -29,6 +29,7 @@ import (
 	storeAdmin "github.com/samirwankhede/lewly-pgpyewj/internal/store/admin"
 	storeBookings "github.com/samirwankhede/lewly-pgpyewj/internal/store/bookings"
 	storeEvents "github.com/samirwankhede/lewly-pgpyewj/internal/store/events"
+	storeSeats "github.com/samirwankhede/lewly-pgpyewj/internal/store/seats"
 	storeUsers "github.com/samirwankhede/lewly-pgpyewj/internal/store/users"
 	storeWaitlist "github.com/samirwankhede/lewly-pgpyewj/internal/store/waitlist"
 )
@@ -41,7 +42,7 @@ func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 			"name":        "Evently",
 			"description": "A scalable event booking platform with concurrency-safe ticketing, waitlists, and admin analytics.",
 			"version":     "1.0.0",
-			"docs":        "/swagger/index.html",
+			"docs":        "/docs",
 			"endpoints":   []string{"/v1/health", "/v1/events", "/v1/bookings", "/v1/waitlist", "/admin"},
 		})
 	})
@@ -65,6 +66,7 @@ func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 		usersRepo := storeUsers.NewUsersRepository(db, log)
 		waitlistRepo := storeWaitlist.NewWaitlistRepository(db, log)
 		adminRepo := storeAdmin.NewAdminRepository(db, log)
+		seatsRepo := storeSeats.NewSeatsRepository(db, log)
 
 		// Create Redis client and mailer
 		tokens := redisx.NewTokenBucket(cfg.RedisAddr)
@@ -77,14 +79,14 @@ func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 		producer := kafkax.NewProducer([]string{cfg.KafkaBrokers}, "bookings")
 		bookingsSvc := bookingsService.NewBookingsService(log, bookingsRepo, eventsRepo, tokens, producer, waitlistRepo, mailerSvc)
 		paymentSvc := paymentService.NewPaymentService(log, bookingsRepo, eventsRepo)
-		adminSvc := adminService.NewAdminService(log, eventsRepo, usersRepo, adminRepo, tokens, mailerSvc)
+		adminSvc := adminService.NewAdminService(log, eventsRepo, usersRepo, adminRepo, seatsRepo, tokens, mailerSvc)
 
 		// Register handlers
 		events.NewEventsHandler(log, eventsSvc, cfg.JWTSigningSecret).Register(r)
 		auth.NewAuthHandler(log, authSvc, cfg.JWTSigningSecret).Register(r)
 		bookings.NewBookingsHandler(bookingsSvc, cfg.JWTSigningSecret).Register(r)
 		waitlist.NewWaitlistHandler(waitlistRepo, cfg.JWTSigningSecret).Register(r)
-		users.NewUsersHandler(bookingsRepo).Register(r)
+		users.NewUsersHandler(bookingsRepo, cfg.JWTSigningSecret).Register(r)
 		payment.NewPaymentHandler(log, paymentSvc, cfg.JWTSigningSecret).Register(r)
 		admin.NewAdminHandler(adminSvc, cfg.JWTSigningSecret).Register(r)
 
