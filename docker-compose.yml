@@ -32,8 +32,15 @@ services:
     image: prom/prometheus:v2.53.0
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
     ports:
       - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"   # keep 15 days of data (tweak as needed)
+      - "--web.enable-lifecycle"              # allows hot reload via POST /-/reload
+
 
   grafana:
     image: grafana/grafana:10.4.2
@@ -133,5 +140,6 @@ services:
 
 volumes:
   pgdata:
+  prometheus-data:
 
 
