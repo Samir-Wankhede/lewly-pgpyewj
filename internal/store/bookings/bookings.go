@@ -34,7 +34,7 @@ func NewBookingsRepository(db *store.DB, log *zap.Logger) *BookingsRepository {
 	return &BookingsRepository{db: db, log: log}
 }
 
-func (r *BookingsRepository) CreatePending(ctx context.Context, userID, eventID string, idempotencyKey *string, seats []byte) (*Booking, error) {
+func (r *BookingsRepository) CreatePending(ctx context.Context, userID string, eventID string, idempotencyKey *string, seats []byte) (*Booking, error) {
 	query := `
 		INSERT INTO bookings (user_id, event_id, status, idempotency_key, payment_status, seats)
 		VALUES ($1, $2, 'pending', $3, 'pending', $4)

@@ -180,7 +180,7 @@ paths:
   ####################################
   # Bookings
   ####################################
-  /v1/events/{id}/book:
+  /v1/bookings/{id}/book:
     post:
       summary: Book tickets for an event
       parameters:
@@ -230,7 +230,7 @@ paths:
         "200":
           description: Cancelled
 
-  /v1/bookings/user/{user_id}:
+  /v1/bookings/user-bookings:
     get:
       summary: List bookings for logged-in user
       security: [ { bearerAuth: [] } ]
@@ -461,7 +461,7 @@ paths:
   # Payment
   ####################################
   /v1/payment/booking:
-    post:
+    get:
       summary: Process booking payment
       parameters:
         - in: query
@@ -477,7 +477,7 @@ paths:
         "200": { description: Payment successful }
 
   /v1/payment/refund:
-    post:
+    get:
       summary: Process refund for a booking
       requestBody:
         required: true
@@ -487,47 +487,17 @@ paths:
       responses:
         "200": { description: Refund processed }
 
-  /v1/payment/events/{id}/refund:
+  /v1/payment/events/{event_id}/refund:
     post:
       summary: Refund all bookings for cancelled event
       security: [ { bearerAuth: [] } ]
       parameters:
         - in: path
-          name: id
+          name: event_id
           required: true
           schema: { type: string }
       responses:
         "200": { description: Refunds processed }
-
-  ####################################
-  # Users
-  ####################################
-  /v1/users/{id}/bookings:
-    get:
-      summary: List user bookings
-      security: [ { bearerAuth: [] } ]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
-        - in: query
-          name: limit
-          schema: { type: integer, default: 50 }
-        - in: query
-          name: offset
-          schema: { type: integer, default: 0 }
-      responses:
-        "200":
-          description: User bookings
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  bookings:
-                    type: array
-                    items: { $ref: "#/components/schemas/Booking" }
 
   ####################################
   # Waitlist
@@ -622,7 +592,10 @@ components:
     BookingRequest:
       type: object
       properties:
-        seats: { type: integer }
+        seats:
+          type: array
+          items:
+            type: string
       required: [ seats ]
 
     Booking:

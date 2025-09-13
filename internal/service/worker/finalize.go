@@ -36,11 +36,12 @@ type FinalizePayload struct {
 	IdempotencyKey *string  `json:"idempotency_key"`
 }
 
-func NewFinalizeService(log *zap.Logger, bookings *bookings.BookingsRepository, events *events.EventsRepository, waitlist *waitlist.WaitlistRepository, paymentURL string, mailer *mailerService.MailerService, timeoutBucket *redisx.TimeoutBucket) *FinalizeService {
+func NewFinalizeService(log *zap.Logger, bookings *bookings.BookingsRepository, events *events.EventsRepository, users *users.UsersRepository, waitlist *waitlist.WaitlistRepository, paymentURL string, mailer *mailerService.MailerService, timeoutBucket *redisx.TimeoutBucket) *FinalizeService {
 	return &FinalizeService{
 		log:           log,
 		bookings:      bookings,
 		events:        events,
+		users:         users,
 		waitlist:      waitlist,
 		paymentURL:    paymentURL,
 		mailer:        mailer,
@@ -75,7 +76,7 @@ func (s *FinalizeService) HandleBookingFinalization(ctx context.Context, payload
 	amount := event.TicketPrice * float64(len(payload.Seats))
 
 	// Generate payment link
-	paymentLink := fmt.Sprintf("%s/v1/payment/booking?booking_id=%s&amount=%.2f&booking_id=%s", s.paymentURL, payload.BookingID, amount, payload.BookingID)
+	paymentLink := fmt.Sprintf("%s/v1/payment/booking?booking_id=%s&amount=%.2f&payment_id=%s", s.paymentURL, payload.BookingID, amount, payload.BookingID)
 
 	// Hello Evaluator I've pondered over using redis, but over a network with not 'hot' objects like session tokens and decent partitions I haven't implemented cached mappings of event+userid -> email though in production I believe such will be needed
 	// Currently I believe the complexity will increase without much effectiveness so this user email fetching is more focused on HLD and functionality
@@ -164,10 +165,15 @@ func (s *FinalizeService) HandleBookingTimeout(ctx context.Context, payload Fina
 		}
 		userEmail := user.Email
 
-		err = s.mailer.SendWaitlistPromotionEmail(userEmail, event.Name, paymentLink)
+		err = s.mailer.SendWaitlistPromotionEmail(userEmail, event.Name)
 		if err != nil {
 			s.log.Error("Failed to send waitlist promotion email", zap.Error(err))
 			// Don't return error, continue processing
+		}
+		err = s.mailer.SendPaymentRequestEmail(userEmail, event.Name, amount, paymentLink)
+		if err != nil {
+			s.log.Error("Failed to send payment request email", zap.Error(err))
+			return fmt.Errorf("failed to send payment request email")
 		}
 
 		// Schedule timeout for new booking

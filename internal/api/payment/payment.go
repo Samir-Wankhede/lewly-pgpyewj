@@ -23,8 +23,8 @@ func NewPaymentHandler(log *zap.Logger, svc *payment.PaymentService, secret stri
 
 func (h *PaymentHandler) Register(r *gin.Engine) {
 	payments := r.Group("/v1/payment")
-	payments.POST("/booking", h.processBookingPayment)
-	payments.POST("/refund", h.processRefund)
+	payments.GET("/booking", h.processBookingPayment)
+	payments.GET("/refund", h.processRefund)
 	payments.Use(jwtMiddleware.Middleware(h.secret, true))
 	{
 		payments.POST("/events/:id/refund", h.processEventCancellationRefund)
@@ -72,13 +72,12 @@ func (h *PaymentHandler) processBookingPayment(c *gin.Context) {
 }
 
 func (h *PaymentHandler) processRefund(c *gin.Context) {
-	var req payment.RefundRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	BookingID := c.Query("booking_id")
+	if BookingID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Booking not found"})
 	}
 
-	resp, err := h.svc.ProcessCancellationRefund(c.Request.Context(), req)
+	resp, err := h.svc.ProcessCancellationRefund(c.Request.Context(), BookingID)
 	if err != nil {
 		if err == payment.ErrBookingNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Booking not found"})

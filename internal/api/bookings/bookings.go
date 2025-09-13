@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	jwtMiddleware "github.com/samirwankhede/lewly-pgpyewj/internal/middleware"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/service/bookings"
@@ -20,26 +21,38 @@ func NewBookingsHandler(svc *bookings.BookingsService, secret string) *BookingsH
 }
 
 func (h *BookingsHandler) Register(r *gin.Engine) {
-	r.POST("/v1/events/:id/book", h.book)
-	r.GET("/v1/bookings/:id/status", h.getStatus)
-	r.POST("/v1/bookings/:id/cancel", h.cancel)
-
 	// Protected routes
 	protected := r.Group("/v1/bookings")
 	protected.Use(jwtMiddleware.Middleware(h.secret, false))
 	{
-		protected.GET("/user/:user_id", h.listUserBookings)
+		protected.POST("/:id/book", h.book)
+		protected.GET("/:id/status", h.getStatus)
+		protected.POST("/:id/cancel", h.cancel)
+		protected.GET("/user-bookings", h.listUserBookings)
 	}
 }
 
 func (h *BookingsHandler) book(c *gin.Context) {
 	eventID := c.Param("id")
-	var req bookings.BookingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	userID := c.GetString("uid")
+	IdempotencyKey := uuid.NewString()
+	type Seats struct {
+		Seats []string `json:"seats" binding:"required"`
+	}
+	var seats Seats
+	if err := c.ShouldBindJSON(&seats); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	resp, code, err := h.svc.Create(c, eventID, req)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing user id"})
+		return
+	}
+	if eventID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing event id"})
+		return
+	}
+	resp, code, err := h.svc.Create(c, eventID, userID, &IdempotencyKey, seats.Seats)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return

@@ -52,20 +52,18 @@ Evently Team
 	return nil
 }
 
-func (m *MailerService) SendWaitlistPromotionEmail(userEmail string, eventName string, paymentLink string) error {
+func (m *MailerService) SendWaitlistPromotionEmail(userEmail string, eventName string) error {
 	subject := fmt.Sprintf("Great News! You're off the waitlist for %s", eventName)
 	body := fmt.Sprintf(`
 Dear User,
 
 Great news! A spot has opened up for "%s" and you're next in line!
 
-Payment Link: %s
-
-Please complete your payment within 15 minutes to secure your booking.
+You will receive a payment link soon.
 
 Best regards,
 Evently Team
-`, eventName, paymentLink)
+`, eventName)
 
 	mail := mailer.Mail{
 		To:      userEmail,

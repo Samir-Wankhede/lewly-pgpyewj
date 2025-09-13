@@ -11,19 +11,23 @@ import (
 
 	kafkax "github.com/samirwankhede/lewly-pgpyewj/internal/kafka"
 	redisx "github.com/samirwankhede/lewly-pgpyewj/internal/redis"
+	mailer "github.com/samirwankhede/lewly-pgpyewj/internal/service/mailer"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/bookings"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/events"
+	"github.com/samirwankhede/lewly-pgpyewj/internal/store/users"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store/waitlist"
 )
 
 type BookingsService struct {
-	log    *zap.Logger
-	repo   *bookings.BookingsRepository
-	events *events.EventsRepository
-	tokens *redisx.TokenBucket
-	prod   *kafkax.Producer
-	wait   *waitlist.WaitlistRepository
-	mailer MailerService
+	log        *zap.Logger
+	repo       *bookings.BookingsRepository
+	events     *events.EventsRepository
+	users      *users.UsersRepository
+	tokens     *redisx.TokenBucket
+	prod       *kafkax.Producer
+	wait       *waitlist.WaitlistRepository
+	mailer     *mailer.MailerService
+	paymentURL string
 }
 
 type BookingRequest struct {
@@ -38,16 +42,11 @@ type BookingResponse struct {
 	Position  int    `json:"position,omitempty"`
 }
 
-type MailerService interface {
-	SendCancellationEmail(userEmail string, cancellationFee float64, paymentLink string) error
-	SendWaitlistPromotionEmail(userEmail string, eventName string, paymentLink string) error
+func NewBookingsService(log *zap.Logger, repo *bookings.BookingsRepository, events *events.EventsRepository, users *users.UsersRepository, tokens *redisx.TokenBucket, prod *kafkax.Producer, wait *waitlist.WaitlistRepository, mailer *mailer.MailerService, paymentURL string) *BookingsService {
+	return &BookingsService{log: log, repo: repo, events: events, users: users, tokens: tokens, prod: prod, wait: wait, mailer: mailer, paymentURL: paymentURL}
 }
 
-func NewBookingsService(log *zap.Logger, repo *bookings.BookingsRepository, events *events.EventsRepository, tokens *redisx.TokenBucket, prod *kafkax.Producer, wait *waitlist.WaitlistRepository, mailer MailerService) *BookingsService {
-	return &BookingsService{log: log, repo: repo, events: events, tokens: tokens, prod: prod, wait: wait, mailer: mailer}
-}
-
-func (s *BookingsService) Create(ctx context.Context, eventID string, req BookingRequest) (*BookingResponse, int, error) {
+func (s *BookingsService) Create(ctx context.Context, eventID string, userID string, IdempotencyKey *string, seats []string) (*BookingResponse, int, error) {
 	// Check if event exists and is not expired
 	event, err := s.events.Get(ctx, eventID)
 	if err != nil {
@@ -65,27 +64,27 @@ func (s *BookingsService) Create(ctx context.Context, eventID string, req Bookin
 	}
 
 	// Check if user is trying to book more than maximum allowed
-	if len(req.Seats) > event.MaximumTicketsPerBooking {
+	if len(seats) > event.MaximumTicketsPerBooking {
 		return nil, 400, fmt.Errorf("cannot book more than %d tickets", event.MaximumTicketsPerBooking)
 	}
 
 	// Idempotency check
-	if req.IdempotencyKey != nil && *req.IdempotencyKey != "" {
-		if b, err := s.repo.GetByIdempotency(ctx, *req.IdempotencyKey); err == nil && b != nil {
+	if IdempotencyKey != nil && *IdempotencyKey != "" {
+		if b, err := s.repo.GetByIdempotency(ctx, *IdempotencyKey); err == nil && b != nil {
 			return &BookingResponse{BookingID: b.ID, Status: b.Status}, 200, nil
 		}
 	}
 
 	// Reserve tokens for the number of seats requested
-	ok, err := s.tokens.Reserve(ctx, eventID, len(req.Seats))
+	ok, err := s.tokens.Reserve(ctx, eventID, len(seats))
 	if err != nil {
 		return nil, 500, err
 	}
 
 	if ok {
 		// Store seats in booking
-		seatsJSON, _ := json.Marshal(req.Seats)
-		b, err := s.repo.CreatePending(ctx, req.UserID, eventID, req.IdempotencyKey, seatsJSON)
+		seatsJSON, _ := json.Marshal(seats)
+		b, err := s.repo.CreatePending(ctx, userID, eventID, IdempotencyKey, seatsJSON)
 		if err != nil {
 			return nil, 500, err
 		}
@@ -94,9 +93,9 @@ func (s *BookingsService) Create(ctx context.Context, eventID string, req Bookin
 			"type":            "finalize_booking",
 			"booking_id":      b.ID,
 			"event_id":        eventID,
-			"user_id":         req.UserID,
-			"seats":           req.Seats,
-			"idempotency_key": req.IdempotencyKey,
+			"user_id":         userID,
+			"seats":           seats,
+			"idempotency_key": IdempotencyKey,
 		}
 		by, _ := json.Marshal(payload)
 		if err := s.prod.Publish(ctx, []byte(eventID), by); err != nil {
@@ -106,7 +105,7 @@ func (s *BookingsService) Create(ctx context.Context, eventID string, req Bookin
 	}
 
 	// Fallback: Auto waitlist
-	position, err := s.wait.Add(ctx, eventID, req.UserID)
+	position, err := s.wait.Add(ctx, eventID, userID)
 	if err != nil {
 		return nil, 500, err
 	}
@@ -136,11 +135,19 @@ func (s *BookingsService) Cancel(ctx context.Context, bookingID string) (map[str
 
 		_ = s.tokens.Release(ctx, b.EventID, seatCount)
 
+		event, err := s.events.Get(ctx, b.EventID)
+		if err != nil {
+			return nil, 409, err
+		}
+
 		// Send cancellation email with fee and payment link
 		if s.mailer != nil {
-			// Get user email (you'd need to implement this)
-			// For now, we'll skip the email sending
-			// s.mailer.SendCancellationEmail(userEmail, event.CancellationFee, paymentLink)
+			user, err := s.users.GetByID(ctx, b.UserID)
+			if err != nil {
+				return nil, 409, err
+			}
+			paymentLink := fmt.Sprintf("%s/v1/payment/refund?booking_id=%s", s.paymentURL, bookingID)
+			s.mailer.SendCancellationEmail(user.Email, event.CancellationFee, paymentLink)
 		}
 
 		// Promote next person from waitlist
@@ -166,7 +173,11 @@ func (s *BookingsService) Cancel(ctx context.Context, bookingID string) (map[str
 
 					// Send waitlist promotion email
 					if s.mailer != nil {
-						// s.mailer.SendWaitlistPromotionEmail(userEmail, eventName, paymentLink)
+						user, err := s.users.GetByID(ctx, userID)
+						if err != nil {
+							return nil, 409, err
+						}
+						s.mailer.SendWaitlistPromotionEmail(user.Email, event.Name)
 					}
 				}
 			}

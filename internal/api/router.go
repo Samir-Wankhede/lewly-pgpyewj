@@ -12,7 +12,6 @@ import (
 	"github.com/samirwankhede/lewly-pgpyewj/internal/api/bookings"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/api/events"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/api/payment"
-	"github.com/samirwankhede/lewly-pgpyewj/internal/api/users"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/api/waitlist"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/config"
 	kafkax "github.com/samirwankhede/lewly-pgpyewj/internal/kafka"
@@ -83,7 +82,7 @@ func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 		eventsSvc := eventsService.NewEventsService(log, eventsRepo, tokens)
 		authSvc := authService.NewAuthService(log, usersRepo, tokens, cfg.JWTSigningSecret, mailerSvc)
 		producer := kafkax.NewProducer([]string{cfg.KafkaBrokers}, "bookings")
-		bookingsSvc := bookingsService.NewBookingsService(log, bookingsRepo, eventsRepo, tokens, producer, waitlistRepo, mailerSvc)
+		bookingsSvc := bookingsService.NewBookingsService(log, bookingsRepo, eventsRepo, usersRepo, tokens, producer, waitlistRepo, mailerSvc, cfg.PaymentURL)
 		paymentSvc := paymentService.NewPaymentService(log, bookingsRepo, eventsRepo)
 		adminSvc := adminService.NewAdminService(log, eventsRepo, usersRepo, bookingsRepo, adminRepo, seatsRepo, tokens, mailerSvc)
 
@@ -92,7 +91,6 @@ func RegisterRoutes(r *gin.Engine, log *zap.Logger) {
 		auth.NewAuthHandler(log, authSvc, cfg.JWTSigningSecret).Register(r)
 		bookings.NewBookingsHandler(bookingsSvc, cfg.JWTSigningSecret).Register(r)
 		waitlist.NewWaitlistHandler(waitlistRepo, cfg.JWTSigningSecret).Register(r)
-		users.NewUsersHandler(bookingsRepo, cfg.JWTSigningSecret).Register(r)
 		payment.NewPaymentHandler(log, paymentSvc, cfg.JWTSigningSecret).Register(r)
 		admin.NewAdminHandler(adminSvc, cfg.JWTSigningSecret).Register(r)
 

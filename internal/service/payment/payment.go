@@ -31,12 +31,6 @@ type PaymentResponse struct {
 	BookingID string `json:"booking_id,omitempty"`
 }
 
-type RefundRequest struct {
-	BookingID string  `json:"booking_id"`
-	Amount    float64 `json:"amount"`
-	Reason    string  `json:"reason"`
-}
-
 var (
 	ErrBookingNotFound = errors.New("booking not found")
 	ErrInvalidAmount   = errors.New("invalid amount")
@@ -129,9 +123,9 @@ func (s *PaymentService) ProcessBookingPayment(ctx context.Context, req PaymentR
 	}, nil
 }
 
-func (s *PaymentService) ProcessCancellationRefund(ctx context.Context, req RefundRequest) (*PaymentResponse, error) {
+func (s *PaymentService) ProcessCancellationRefund(ctx context.Context, BookingID string) (*PaymentResponse, error) {
 	// Get booking
-	booking, err := s.bookings.GetByID(ctx, req.BookingID)
+	booking, err := s.bookings.GetByID(ctx, BookingID)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +164,7 @@ func (s *PaymentService) ProcessCancellationRefund(ctx context.Context, req Refu
 	}
 
 	// Update booking payment status
-	err = s.bookings.UpdatePaymentStatus(ctx, req.BookingID, "refunded", refundAmount)
+	err = s.bookings.UpdatePaymentStatus(ctx, BookingID, "refunded", refundAmount)
 	if err != nil {
 		s.log.Error("Failed to update refund status", zap.Error(err))
 		return nil, err
@@ -179,7 +173,7 @@ func (s *PaymentService) ProcessCancellationRefund(ctx context.Context, req Refu
 	return &PaymentResponse{
 		Success:   true,
 		Message:   fmt.Sprintf("Refund processed successfully. Amount: %.2f, Cancellation fee: %.2f", refundAmount, cancellationFee),
-		BookingID: req.BookingID,
+		BookingID: BookingID,
 	}, nil
 }
 

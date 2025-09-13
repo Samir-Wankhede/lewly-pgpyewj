@@ -18,6 +18,7 @@ import (
 	"github.com/samirwankhede/lewly-pgpyewj/internal/store"
 	storeBookings "github.com/samirwankhede/lewly-pgpyewj/internal/store/bookings"
 	storeEvents "github.com/samirwankhede/lewly-pgpyewj/internal/store/events"
+	storeUsers "github.com/samirwankhede/lewly-pgpyewj/internal/store/users"
 	storeWaitlist "github.com/samirwankhede/lewly-pgpyewj/internal/store/waitlist"
 	"github.com/samirwankhede/lewly-pgpyewj/internal/worker"
 )
@@ -42,6 +43,7 @@ func main() {
 	bookingsRepo := storeBookings.NewBookingsRepository(db, log)
 	eventsRepo := storeEvents.NewEventsRepository(db, log)
 	waitlistRepo := storeWaitlist.NewWaitlistRepository(db, log)
+	usersRepository := storeUsers.NewUsersRepository(db, log)
 
 	// Create mailer service
 	mailerSender := &mailer.SMTPSender{
@@ -54,7 +56,7 @@ func main() {
 	mailerSvc := mailerService.NewMailerService(log, mailerSender)
 
 	// Create finalize service
-	finalizeSvc := workerService.NewFinalizeService(log, bookingsRepo, eventsRepo, waitlistRepo, cfg.PaymentURL, mailerSvc, bookingTimeoutStore)
+	finalizeSvc := workerService.NewFinalizeService(log, bookingsRepo, eventsRepo, usersRepository, waitlistRepo, cfg.PaymentURL, mailerSvc, bookingTimeoutStore)
 
 	// Create Kafka consumer and producer
 	consumer := kafkax.NewConsumer([]string{cfg.KafkaBrokers}, "evently-finalizer", "bookings")
