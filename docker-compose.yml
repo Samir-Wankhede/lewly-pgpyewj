@@ -184,6 +184,10 @@ services:
         condition: service_started
       shutdown-nginx-certbot:
         condition: service_completed_successfully
+      prometheus:
+        condition: service_started
+      grafana:
+        condition: service_started
     restart: always
 
 volumes:
