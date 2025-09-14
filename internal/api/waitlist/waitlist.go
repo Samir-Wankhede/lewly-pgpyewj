@@ -26,8 +26,8 @@ func (h *WaitlistHandler) Register(r *gin.Engine) {
 	protected := r.Group("/v1/waitlist")
 	protected.Use(jwtMiddleware.Middleware(h.secret, false))
 	{
-		protected.POST("/v1/waitlist/:event_id/join", h.join)
-		protected.POST("/v1/waitlist/:event_id/optout", h.optout)
+		protected.POST("/:event_id/join", h.join)
+		protected.POST("/:event_id/optout", h.optout)
 	}
 
 }

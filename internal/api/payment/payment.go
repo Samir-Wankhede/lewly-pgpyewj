@@ -18,7 +18,7 @@ type PaymentHandler struct {
 }
 
 func NewPaymentHandler(log *zap.Logger, svc *payment.PaymentService, secret string) *PaymentHandler {
-	return &PaymentHandler{log: log, svc: svc}
+	return &PaymentHandler{log: log, svc: svc, secret: secret}
 }
 
 func (h *PaymentHandler) Register(r *gin.Engine) {

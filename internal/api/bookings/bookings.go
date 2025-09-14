@@ -35,7 +35,7 @@ func (h *BookingsHandler) Register(r *gin.Engine) {
 func (h *BookingsHandler) book(c *gin.Context) {
 	eventID := c.Param("id")
 	userID := c.GetString("uid")
-	IdempotencyKey := uuid.NewString()
+	IdempotencyKey := uuid.NewString() //This Part should be handled by another service - currently we're just creating a new uuid
 	type Seats struct {
 		Seats []string `json:"seats" binding:"required"`
 	}

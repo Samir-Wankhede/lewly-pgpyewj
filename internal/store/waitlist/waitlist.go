@@ -10,13 +10,13 @@ import (
 )
 
 type WaitlistEntry struct {
-	ID         string  `json:"id"`
-	EventID    string  `json:"event_id"`
-	UserID     string  `json:"user_id"`
-	Position   int     `json:"position"`
-	OptedOut   bool    `json:"opted_out"`
-	NotifiedAt *string `json:"notified_at,omitempty"`
-	CreatedAt  string  `json:"created_at"`
+	ID         string `json:"id"`
+	EventID    string `json:"event_id"`
+	UserID     string `json:"user_id"`
+	Position   int    `json:"position"`
+	OptedOut   bool   `json:"opted_out"`
+	NotifiedAt string `json:"notified_at,omitempty"`
+	CreatedAt  string `json:"created_at"`
 }
 
 type WaitlistRepository struct {
@@ -150,7 +150,7 @@ func (r *WaitlistRepository) ListByEvent(ctx context.Context, eventID string, li
 			return nil, err
 		}
 		if notifiedAt != nil {
-			entry.NotifiedAt = notifiedAt
+			entry.NotifiedAt = *notifiedAt
 		}
 		entries = append(entries, entry)
 	}

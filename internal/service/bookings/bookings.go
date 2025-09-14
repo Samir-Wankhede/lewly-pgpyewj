@@ -165,7 +165,8 @@ func (s *BookingsService) Cancel(ctx context.Context, bookingID string) (map[str
 						"booking_id":      pb.ID,
 						"event_id":        b.EventID,
 						"user_id":         userID,
-						"idempotency_key": nil,
+						"seats":           seats,
+						"idempotency_key": pb.IdempotencyKey,
 					}
 					by, _ := json.Marshal(payload)
 					_ = s.prod.Publish(ctx, []byte(b.EventID), by)
