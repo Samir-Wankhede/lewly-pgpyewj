@@ -46,7 +46,7 @@ paths:
 
   /v1/events/all:
     get:
-      summary: List all events
+      summary: List all events ongoing or upcoming
       parameters:
         - in: query
           name: limit
