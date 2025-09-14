@@ -22,7 +22,7 @@ func NewWaitlistHandler(repo *waitlist.WaitlistRepository, secret string) *Waitl
 func (h *WaitlistHandler) Register(r *gin.Engine) {
 	r.GET("/v1/waitlist/:event_id/count", h.getCount)
 	r.GET("/v1/waitlist/:event_id", h.list)
-
+	// These routes should be kept only for upcoming as default adds to waitlist in booking if capacity full
 	protected := r.Group("/v1/waitlist")
 	protected.Use(jwtMiddleware.Middleware(h.secret, false))
 	{

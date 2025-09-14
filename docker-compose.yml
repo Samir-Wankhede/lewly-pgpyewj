@@ -78,7 +78,8 @@ services:
       SMTP_PORT: 587
       SMTP_FROM : samir.wankhede04@gmail.com
       SMTP_USER: samir.wankhede04@gmail.com
-      SMTP_PASS: sopfvqalwwxokbky
+      # passed removed pass
+      SMTP_PASS: sopfvqalwwxokbky 
       ADMIN_EMAIL: admin@evently.com
       ADMIN_PASSWORD: admin
       MAX_WORKERS: 10
@@ -106,6 +107,7 @@ services:
       SMTP_PORT: 587
       SMTP_FROM : samir.wankhede04@gmail.com
       SMTP_USER: samir.wankhede04@gmail.com
+      # passed removed pass
       SMTP_PASS: sopfvqalwwxokbky
 
   reconciler:
