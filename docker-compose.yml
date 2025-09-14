@@ -120,6 +120,7 @@ services:
       ADMIN_PASSWORD: admin
       MAX_WORKERS: 10
       MAX_DB_CONNECTION: 20
+      PAYMENT_URL: https://evently.samirwankhede.in
     ports:
       - "8080:8080"
 
@@ -145,6 +146,7 @@ services:
       SMTP_USER: samir.wankhede04@gmail.com
       # passed removed pass
       SMTP_PASS: sopfvqalwwxokbky
+      PAYMENT_URL: https://evently.samirwankhede.in
 
   reconciler:
     build: .
