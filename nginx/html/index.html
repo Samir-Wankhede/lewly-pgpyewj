@@ -1,25 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIF Page</title>
-    <style>
-        body {
-            background-color: black;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        img {
-            max-width: 100%;
-            max-height: 100%;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Go to</title>
+  <style>
+    body {
+      background-color: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+    .links {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem; /* distance between links */
+      text-align: center;
+    }
+    .links a {
+      color: white;
+      text-decoration: none;
+      font-size: 1.5rem;
+      transition: color 0.3s ease;
+    }
+    .links a:hover {
+      color: #00bcd4; /* light cyan hover */
+    }
+  </style>
 </head>
 <body>
-    <img src="rickroll-rick.gif" alt="Animated GIF">
+  <div class="links">
+    <a href="/api/">Backend API</a>
+    <a href="/prometheus/">Prometheus</a>
+    <a href="/grafana/">Grafana</a>
+  </div>
 </body>
 </html>
