@@ -71,20 +71,20 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=15d"   # keep 15 days of data (tweak as needed)
-      - "--web.enable-lifecycle"              # allows hot reload via POST /-/reload
-      - "--web.external-url=https://evently.samirwankhede.in/prometheus/"
+      - '--web.enable-lifecycle'
+      - '--web.external-url=/prometheus/'
 
 
   grafana:
     image: grafana/grafana:10.4.2
-    environment:
-      - GF_SERVER_ROOT_URL=https://evently.samirwankhede.in/grafana/
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards
       - ./infra/grafana/provisioning:/etc/grafana/provisioning
     ports:
       - "3000:3000"
+    environment:
+        GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
+        GF_SERVER_SERVE_FROM_SUB_PATH: "true"
 
   migrate:
     image: migrate/migrate:v4.17.0
