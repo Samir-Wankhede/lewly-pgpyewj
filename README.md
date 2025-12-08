@@ -1,4 +1,4 @@
-# lewly-pgpyewj
+# Evently
 
 High-concurrency ticketing backend in Go with Postgres, Redis, Kafka, Prometheus, and Swagger.
 
